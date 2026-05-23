@@ -1,0 +1,93 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Market backend infrastructure
+#
+# Services:
+#   postgres           – primary database (source of truth)
+#   opensearch         – search engine (catalog search only)
+#   opensearch-dashboards – UI for OpenSearch (dev only)
+#
+# Scaling notes:
+#   - For production: set number_of_replicas=1 in OpenSearch, run 3+ nodes
+#   - For production: enable security plugin (remove DISABLE_SECURITY_PLUGIN)
+#   - For production: set OPENSEARCH_JAVA_OPTS to 50% of available RAM
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: market-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DATABASE:-market-db}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  opensearch:
+    image: opensearchproject/opensearch:2.12.0
+    container_name: market-opensearch
+    restart: unless-stopped
+    environment:
+      - cluster.name=market-cluster
+      - node.name=market-node-1
+      - discovery.type=single-node
+      # Disable security plugin for local development.
+      # PRODUCTION: remove these two lines and configure certificates.
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - bootstrap.memory_lock=true
+      # Production recommendation: set to 50% of host RAM, min 2g, max 32g
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - '9200:9200'
+      - '9600:9600' # performance analyzer port
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    healthcheck:
+      # Waits for cluster to reach yellow (≥1 shard) or green status
+      test:
+        - CMD-SHELL
+        - |
+          curl -sf http://localhost:9200/_cluster/health \
+            | grep -qE '"status":"(yellow|green)"'
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.12.0
+    container_name: market-opensearch-dashboards
+    restart: unless-stopped
+    ports:
+      - '5601:5601'
+    environment:
+      - 'OPENSEARCH_HOSTS=["http://opensearch:9200"]'
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  opensearch_data:
+    driver: local

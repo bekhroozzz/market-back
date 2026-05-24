@@ -66,4 +66,7 @@ export interface ProductDocument {
 
   /** ISO 8601 timestamp – used for recency boost decay function */
   createdAt: string;
+
+  /** Image URLs. Stored for display in search results without extra DB round-trips. */
+  images: string[];
 }

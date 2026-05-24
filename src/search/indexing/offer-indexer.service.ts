@@ -133,6 +133,7 @@ export class OfferIndexerService {
       rating: offer.rating ?? 0,
       salesCount: offer.salesCount ?? 0,
       createdAt: offer.createdAt?.toISOString() ?? new Date().toISOString(),
+      images: offer.images ?? [],
     };
   }
 

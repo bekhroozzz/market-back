@@ -85,6 +85,13 @@ export class ProductDocumentDto {
     description: 'Дата создания (ISO 8601)',
   })
   createdAt: string;
+
+  @ApiProperty({
+    example: ['https://example.com/img1.jpg', 'https://example.com/img2.jpg'],
+    type: [String],
+    description: 'URL изображений товара',
+  })
+  images: string[];
 }
 
 // ─── Search hit ───────────────────────────────────────────────────────────────

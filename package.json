@@ -13,6 +13,8 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main",
     "seed:categories": "ts-node db/seeds/category.seed.ts",
+    "seed:offers": "ts-node db/seeds/offer.seed.ts",
+    "search:reindex": "ts-node src/scripts/reindex-search.ts",
     "typeorm": "pnpm run build && npx typeorm",
     "migration:generate": "pnpm run build && npx typeorm -d dist/db/data-source.js migration:generate",
     "migration:run": "pnpm run build && npx typeorm -d dist/db/data-source.js migration:run",

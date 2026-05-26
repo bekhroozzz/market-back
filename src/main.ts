@@ -1,15 +1,24 @@
 import { NestFactory, Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as dotenv from 'dotenv';
 import { ClassSerializerInterceptor } from '@nestjs/common';
+import { join } from 'path';
+import { mkdirSync } from 'fs';
 
 dotenv.config();
 
+// Ensure upload directories exist on startup
+['uploads/gallery', 'uploads/images'].forEach((dir) => {
+  mkdirSync(join(process.cwd(), dir), { recursive: true });
+});
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.useGlobalPipes(new ValidationPipe());
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',

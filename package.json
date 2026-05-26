@@ -12,6 +12,7 @@
     "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main",
+    "seed:all": "ts-node db/seeds/seed.ts",
     "seed:categories": "ts-node db/seeds/category.seed.ts",
     "seed:offers": "ts-node db/seeds/offer.seed.ts",
     "search:reindex": "ts-node src/scripts/reindex-search.ts",
@@ -51,6 +52,7 @@
     "typeorm": "^0.3.24"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.4.0",
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",

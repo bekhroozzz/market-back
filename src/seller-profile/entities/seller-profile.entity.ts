@@ -11,7 +11,6 @@ import {
 import { User } from '../../user/entities/user.entity';
 
 export interface Branch {
-  id: string;
   title: string;
   address: string;
   latitude?: number;
@@ -49,7 +48,7 @@ export class SellerProfileEntity {
   phones: string[];
 
   @ApiPropertyOptional({
-    example: [{ id: 'uuid', title: 'Главный офис', address: 'г. Москва, ул. Ленина, 1' }],
+    example: [{ title: 'Главный офис', address: 'г. Москва, ул. Ленина, 1' }],
   })
   @Column({ type: 'jsonb', default: [] })
   branches: Branch[];

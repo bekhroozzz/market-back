@@ -65,7 +65,6 @@ export function makeSellerProfile(sellerIndex: number): SellerProfileSeedData {
 
   const branches: Branch[] = [
     {
-      id: `branch-${sellerIndex}-main`,
       title: 'Главный офис',
       address: `г. ${cityData.city}, ${cityData.street}, ${10 + sellerIndex * 3}`,
       latitude: cityData.lat + sellerIndex * 0.001,

@@ -1,28 +1,28 @@
-import { IsNumber, IsString, IsUUID, Max, Min } from 'class-validator';
+import { IsInt, IsString, IsUUID, Max, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateReviewDto {
   @ApiProperty({
-    example: 'Очень хорошее предложение!',
+    example: 'Отличное место, обязательно вернёмся!',
     description: 'Текст отзыва',
   })
   @IsString()
   text: string;
 
   @ApiProperty({
-    example: 8.5,
-    description: 'Оценка от 0 до 10',
-    minimum: 0,
-    maximum: 10,
+    example: 5,
+    description: 'Оценка от 1 до 5 звёзд',
+    minimum: 1,
+    maximum: 5,
   })
-  @IsNumber()
-  @Min(0)
-  @Max(10)
+  @IsInt()
+  @Min(1)
+  @Max(5)
   rating: number;
 
   @ApiProperty({
     example: 'd2a1a340-63e2-4d92-bf24-0d8c12bde0b4',
-    description: 'ID предложения, к которому относится отзыв',
+    description: 'ID оффера',
   })
   @IsUUID('4')
   offerId: string;

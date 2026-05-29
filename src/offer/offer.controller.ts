@@ -12,8 +12,9 @@ import {
 import { Request as ExpressRequest } from 'express';
 import { OfferService } from './offer.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
+import { UpdateOfferDto } from './dto/update-offer.dto';
 import { OfferEntity } from './entities/offer.entity';
-import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../user/enums/role.enum';
@@ -29,69 +30,56 @@ export class OfferController {
   constructor(private readonly offerService: OfferService) {}
 
   @Public()
-  @ApiOperation({ summary: 'Get all Offers' })
-  @ApiResponse({
-    status: 200,
-    description: 'Successfully get all offers',
-    type: OfferEntity,
-    isArray: true,
-  })
+  @ApiOperation({ summary: 'Получить все офферы' })
+  @ApiResponse({ status: 200, type: OfferEntity, isArray: true })
   @Get('all')
   async findAll() {
-    return await this.offerService.findAll();
+    return this.offerService.findAll();
   }
 
   @Public()
-  @ApiParam({ name: 'id', type: 'string', description: 'id of offer' })
-  @ApiOperation({ summary: 'Get  Offer by id' })
-  @ApiResponse({
-    status: 200,
-    description: 'Successfully get  offer by id',
-    type: OfferEntity,
-  })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiOperation({ summary: 'Получить оффер по ID' })
+  @ApiResponse({ status: 200, type: OfferEntity })
   @Get('find-by-id/:id')
   async findById(@Param('id') id: string) {
-    return await this.offerService.findById(id);
+    return this.offerService.findById(id);
   }
 
   @Post('create')
   @UseGuards(RolesGuard)
   @Roles(Role.Seller, Role.Admin)
-  @ApiOperation({ summary: 'Create  Offer' })
-  @ApiBody({ type: CreateOfferDto, description: 'offer fields' })
-  @ApiResponse({
-    status: 200,
-    description: 'Successfully created offer',
-    type: OfferEntity,
-  })
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Создать оффер' })
+  @ApiBody({ type: CreateOfferDto })
+  @ApiResponse({ status: 201, type: OfferEntity })
   async create(
     @Body() offer: CreateOfferDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return await this.offerService.create({ ...offer, authorId: req.user.sub });
+    return this.offerService.create({ ...offer, authorId: req.user.sub });
   }
 
   @Put('update/:id')
   @UseGuards(RolesGuard)
   @Roles(Role.Seller, Role.Admin)
-  @ApiOperation({ summary: 'Update  Offer' })
-  @ApiBody({ type: CreateOfferDto, description: 'offer fields' })
-  @ApiResponse({
-    status: 200,
-    description: 'Successfully updated offer',
-    type: OfferEntity,
-  })
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Обновить оффер' })
+  @ApiBody({ type: UpdateOfferDto })
+  @ApiResponse({ status: 200, type: OfferEntity })
   async update(
     @Param('id') id: string,
-    @Body() offer: CreateOfferDto,
+    @Body() offer: UpdateOfferDto,
   ): Promise<OfferEntity> {
-    return await this.offerService.update(id, offer);
+    return this.offerService.update(id, offer);
   }
 
   @Delete('delete/:id')
   @UseGuards(RolesGuard)
   @Roles(Role.Seller, Role.Admin)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Удалить оффер' })
   async delete(@Param('id') id: string): Promise<OfferEntity> {
-    return await this.offerService.delete(id);
+    return this.offerService.delete(id);
   }
 }

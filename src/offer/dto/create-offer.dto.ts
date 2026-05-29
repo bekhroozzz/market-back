@@ -1,17 +1,19 @@
 import {
   IsArray,
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { AttributeEntry } from '../entities/offer.entity';
+import { AttributeEntry, WorkScheduleDay, PriceTariff } from '../entities/offer.entity';
 
 export class AttributeEntryDto implements AttributeEntry {
   @IsString()
@@ -21,84 +23,95 @@ export class AttributeEntryDto implements AttributeEntry {
   value: string;
 }
 
+export class WorkScheduleDayDto implements WorkScheduleDay {
+  @ApiProperty({ example: 0, description: '0=Пн, 1=Вт, ..., 6=Вс' })
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  day: number;
+
+  @ApiPropertyOptional({ example: '09:00' })
+  @IsOptional()
+  @IsString()
+  openTime: string | null;
+
+  @ApiPropertyOptional({ example: '22:00' })
+  @IsOptional()
+  @IsString()
+  closeTime: string | null;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  isClosed: boolean;
+}
+
+export class PriceTariffDto implements PriceTariff {
+  @ApiProperty({ example: 300 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  price: number;
+
+  @ApiProperty({ example: 'by_hour' })
+  @IsString()
+  @IsNotEmpty()
+  priceType: string;
+}
+
 export class CreateOfferDto {
-  @ApiProperty({
-    example: 'iPhone 14 Pro',
-    description: 'Название предложения',
-  })
+  @ApiProperty({ example: 'Brooklyn Bowling' })
   @IsNotEmpty()
   @IsString()
   title: string;
 
-  @ApiPropertyOptional({
-    example: 'iphone-14-pro',
-    description: 'URL-slug (генерируется автоматически если не указан)',
-  })
+  @ApiPropertyOptional({ example: 'brooklyn-bowling' })
   @IsOptional()
   @IsString()
   slug?: string;
 
-  @ApiProperty({
-    example: 'Состояние нового, полный комплект. Пользовались 2 дня.',
-    description: 'Описание предложения',
-  })
+  @ApiProperty({ example: 'Лучший боулинг в городе.' })
   @IsNotEmpty()
   @IsString()
   description: string;
 
-  @ApiPropertyOptional({
-    example: [
-      'https://example.com/image1.jpg',
-      'https://example.com/image2.jpg',
-    ],
-    description: 'Массив URL-адресов изображений',
-    type: [String],
-  })
+  @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   images?: string[];
 
-  @ApiPropertyOptional({
-    example: 89900,
-    description: 'Цена продажи',
-  })
+  @ApiPropertyOptional({ example: 89900 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   price?: number;
 
-  @ApiPropertyOptional({
-    example: 99900,
-    description: 'Цена до скидки',
-  })
+  @ApiPropertyOptional({ example: 99900 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   oldPrice?: number;
 
   @ApiPropertyOptional({
-    example: true,
-    description: 'Товар в наличии',
-    default: true,
+    example: [{ price: 300, priceType: 'by_hour' }],
+    type: [PriceTariffDto],
   })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PriceTariffDto)
+  prices?: PriceTariffDto[];
+
+  @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()
   @IsBoolean()
   inStock?: boolean;
 
-  @ApiPropertyOptional({
-    example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
-    description: 'UUID бренда',
-  })
+  @ApiPropertyOptional({ example: 'd290f1ee-6c54-4b01-90e6-d701748f0851' })
   @IsOptional()
   @IsUUID('4')
   brandId?: string;
 
-  @ApiPropertyOptional({
-    example: [{ key: 'color', value: 'Space Gray' }],
-    description: 'Атрибуты товара (цвет, размер, материал и т.д.)',
-    type: [AttributeEntryDto],
-  })
+  @ApiPropertyOptional({ type: [AttributeEntryDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -106,28 +119,48 @@ export class CreateOfferDto {
   attributes?: AttributeEntryDto[];
 
   @ApiPropertyOptional({
-    example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
-    description: 'ID категории в формате UUID v4',
-    format: 'uuid',
+    example: [{ day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false }],
+    type: [WorkScheduleDayDto],
+    description: 'График работы (0=Пн … 6=Вс)',
   })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WorkScheduleDayDto)
+  workSchedule?: WorkScheduleDayDto[];
+
+  @ApiPropertyOptional({
+    example: ['Wi-Fi', 'Парковка', 'Терраса'],
+    type: [String],
+    description: 'Ключевые особенности заведения',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  features?: string[];
+
+  @ApiPropertyOptional({
+    example: ['Дресс-код обязателен'],
+    type: [String],
+    description: 'Правила поведения и ограничения',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  rules?: string[];
+
+  @ApiPropertyOptional({ example: 'd290f1ee-6c54-4b01-90e6-d701748f0851' })
   @IsUUID('4')
   @IsOptional()
   categoryId?: string;
 
-  @ApiPropertyOptional({
-    example: 'г. Москва, ул. Ленина, 1',
-    description: 'Адрес филиала/точки',
-  })
+  @ApiPropertyOptional({ example: 'г. Москва, ул. Ленина, 1' })
   @IsOptional()
   @IsString()
   branchAddress?: string;
 
-  @ApiPropertyOptional({
-    example: 'a1b2c3d4-e5f6-7890-1234-56789abcdef0',
-    description: 'ID автора/создателя оффера',
-    format: 'uuid',
-  })
-  @IsUUID('4')
+  @ApiPropertyOptional({ description: 'ID автора (берётся из JWT, не нужно передавать явно)' })
   @IsOptional()
+  @IsString()
   authorId?: string;
 }

@@ -78,7 +78,7 @@ export class OfferService {
   async findById(id: string): Promise<OfferEntity> {
     const offer = await this.offerRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: ['category', 'author'],
     });
 
     if (!offer) throw new NotFoundException('Offer not found');
@@ -107,7 +107,10 @@ export class OfferService {
       branchAddress: offerDto.branchAddress,
     });
 
-    const savedOffer = await this.offerRepository.save(newOffer);
+    const saved = await this.offerRepository.save(newOffer);
+
+    // Reload with full relations so the response contains the complete author + category objects
+    const savedOffer = await this.findById(saved.id);
 
     // Fire-and-forget: OpenSearch sync is eventual consistency.
     // The API response is not delayed by index latency.
@@ -132,7 +135,10 @@ export class OfferService {
       category_id: offerDto.categoryId ?? existing.category_id,
     });
 
-    const savedOffer = await this.offerRepository.save(existing);
+    const saved = await this.offerRepository.save(existing);
+
+    // Reload to return fresh state with all relations populated
+    const savedOffer = await this.findById(saved.id);
 
     this.offerIndexer.upsertOffer(savedOffer.id).catch((err: Error) => {
       this.logger.warn(

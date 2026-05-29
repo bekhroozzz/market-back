@@ -5,64 +5,88 @@ import { CategoryEntity } from '../../src/category/entities/category.entity';
 import { OfferEntity } from '../../src/offer/entities/offer.entity';
 import { ReviewEntity } from '../../src/review/entities/review.entity';
 import { User } from '../../src/user/entities/user.entity';
+import { SellerProfileEntity } from '../../src/seller-profile/entities/seller-profile.entity';
 import { seedUsers } from './user.seed';
+import { seedSellerProfiles } from './seller-profile.seed';
 import { dataSourceOptions } from '../data-source';
 
+/**
+ * Seed the full category tree (materialized-path).
+ * Returns all leaf categories (parentId is not null).
+ */
+export async function seedCategoriesTree(
+  dataSource: DataSource,
+): Promise<CategoryEntity[]> {
+  const treeRepo = dataSource.getTreeRepository(CategoryEntity);
+
+  const existing = await treeRepo.count();
+  if (existing > 0) {
+    console.log(`⏭️  Categories already seeded (${existing} found), skipping...`);
+    return treeRepo.find({ where: { parentId: undefined } });
+  }
+
+  const parentCategories = await Promise.all(
+    categoriesData.map((parentData) =>
+      treeRepo.save({
+        name: parentData.name,
+        description: parentData.description ?? null,
+      }),
+    ),
+  );
+
+  const allChildren: CategoryEntity[] = [];
+
+  for (let i = 0; i < categoriesData.length; i++) {
+    const parentData = categoriesData[i];
+    const parent = parentCategories[i];
+
+    if (parentData.children?.length) {
+      const children = await treeRepo.save(
+        parentData.children.map((childData) => ({
+          name: childData.name,
+          description: (childData as { description?: string }).description ?? null,
+          parent,
+        })),
+      );
+      allChildren.push(...children);
+    }
+  }
+
+  console.log(
+    `✅ Categories seeded: ${parentCategories.length} parents, ${allChildren.length} leaf categories`,
+  );
+
+  return allChildren;
+}
+
+/** Entry point for: pnpm seed:categories */
 async function seed() {
   dotenv.config();
   process.env.NODE_ENV = 'seeding';
 
   const dataSource = new DataSource({
     ...dataSourceOptions,
-    entities: [CategoryEntity, OfferEntity, ReviewEntity, User],
+    entities: [CategoryEntity, OfferEntity, ReviewEntity, User, SellerProfileEntity],
   });
 
   await dataSource.initialize();
 
-  // Используем TreeRepository для работы с иерархией
-  const categoryTreeRepository = dataSource.getTreeRepository(CategoryEntity);
-
   try {
-    // Удаляем данные с учетом зависимостей (CASCADE)
     await dataSource.query(`
-      TRUNCATE TABLE 
-        offers, 
-        reviews, 
+      TRUNCATE TABLE
+        offers,
+        reviews,
+        seller_profiles,
         categories,
-        users 
+        users
       RESTART IDENTITY CASCADE
     `);
 
-    // Создаем пользователей
-    await seedUsers(dataSource);
+    const { sellers } = await seedUsers(dataSource);
+    await seedSellerProfiles(dataSource, sellers);
+    await seedCategoriesTree(dataSource);
 
-    // Создаем родительские категории
-    const parentCategories = await Promise.all(
-      categoriesData.map((parentData) =>
-        categoryTreeRepository.save({
-          name: parentData.name,
-          description: parentData.description || null
-        })
-      )
-    );
-
-    // Создаем дочерние категории
-    for (let i = 0; i < categoriesData.length; i++) {
-      const parentData = categoriesData[i];
-      const parent = parentCategories[i];
-
-      if (parentData.children?.length) {
-        await categoryTreeRepository.save(
-          parentData.children.map((childData) => ({
-            name: childData.name,
-            description: childData.description || null,
-            parent: parent, // Устанавливаем связь с родителем
-          })),
-        );
-      }
-    }
-
-    console.log('✅ Categories seeded successfully with tree structure!');
+    console.log('\n🎉 seed:categories completed successfully!');
   } catch (error) {
     console.error('❌ Seeding failed:', error);
     throw error;
@@ -71,7 +95,9 @@ async function seed() {
   }
 }
 
-seed().catch((error) => {
-  console.error('❌ Fatal seeding error:', error);
-  process.exit(1);
-});
+if (require.main === module) {
+  seed().catch((error) => {
+    console.error('❌ Fatal seeding error:', error);
+    process.exit(1);
+  });
+}

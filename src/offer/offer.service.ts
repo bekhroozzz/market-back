@@ -38,11 +38,28 @@ export class OfferService {
     private readonly sellerProfileService: SellerProfileService,
   ) {}
 
-  async findAll(): Promise<OfferEntity[]> {
-    return this.offerRepository.find({
+  async findAll(page = 1, limit = 20): Promise<{ items: OfferEntity[]; total: number; page: number; limit: number; pages: number }> {
+    const take = Math.min(Math.max(limit, 1), 100);
+    const skip = (Math.max(page, 1) - 1) * take;
+
+    const [items, total] = await this.offerRepository.findAndCount({
       order: { createdAt: 'desc' },
       relations: ['category', 'author'],
+      take,
+      skip,
     });
+
+    return { items, total, page: Math.max(page, 1), limit: take, pages: Math.ceil(total / take) };
+  }
+
+  async findBySlug(slug: string): Promise<OfferEntity> {
+    const offer = await this.offerRepository.findOne({
+      where: { slug },
+      relations: ['category', 'author'],
+    });
+
+    if (!offer) throw new NotFoundException('Offer not found');
+    return offer;
   }
 
   async findById(id: string): Promise<OfferEntity> {

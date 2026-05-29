@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -14,7 +15,7 @@ import { OfferService } from './offer.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { OfferEntity } from './entities/offer.entity';
-import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../user/enums/role.enum';
@@ -30,11 +31,19 @@ export class OfferController {
   constructor(private readonly offerService: OfferService) {}
 
   @Public()
-  @ApiOperation({ summary: 'Получить все офферы' })
-  @ApiResponse({ status: 200, type: OfferEntity, isArray: true })
+  @ApiOperation({ summary: 'Получить все офферы с пагинацией' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiResponse({ status: 200 })
   @Get('all')
-  async findAll() {
-    return this.offerService.findAll();
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.offerService.findAll(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   @Public()
@@ -44,6 +53,15 @@ export class OfferController {
   @Get('find-by-id/:id')
   async findById(@Param('id') id: string) {
     return this.offerService.findById(id);
+  }
+
+  @Public()
+  @ApiParam({ name: 'slug', type: 'string' })
+  @ApiOperation({ summary: 'Получить оффер по slug' })
+  @ApiResponse({ status: 200, type: OfferEntity })
+  @Get('find-by-slug/:slug')
+  async findBySlug(@Param('slug') slug: string) {
+    return this.offerService.findBySlug(slug);
   }
 
   @Post('create')

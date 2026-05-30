@@ -13,6 +13,8 @@ import { SellerProfileModule } from './seller-profile/seller-profile.module';
 import { UploadModule } from './upload/upload.module';
 import { dataSourceOptions } from '../db/data-source';
 import { AccessTokenGuard } from './auth/guards/access-token.guard';
+import { ChatModule } from './chat/chat.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { AccessTokenGuard } from './auth/guards/access-token.guard';
     SearchModule,
     SellerProfileModule,
     UploadModule,
+    ChatModule,
+    NotificationModule,
   ],
   providers: [
     {

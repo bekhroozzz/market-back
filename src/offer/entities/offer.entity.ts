@@ -191,6 +191,11 @@ export class OfferEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   branchAddress?: string;
 
+  /** If true, booking is auto-confirmed without seller approval */
+  @ApiProperty({ example: false, default: false })
+  @Column({ name: 'auto_confirm_booking', type: 'boolean', default: false })
+  autoConfirmBooking: boolean;
+
   @ApiProperty({ example: '2025-06-13T15:30:00.000Z' })
   @CreateDateColumn()
   createdAt: Date;

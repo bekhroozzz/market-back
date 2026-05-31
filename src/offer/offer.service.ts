@@ -160,6 +160,7 @@ export class OfferService {
       category_id: offerDto.categoryId,
       author: { id: authorId },
       branchAddress,
+      autoConfirmBooking: offerDto.autoConfirmBooking ?? false,
     });
 
     const saved = await this.offerRepository.save(newOffer);
@@ -201,6 +202,9 @@ export class OfferService {
       }),
       ...(offerDto.branchAddress !== undefined && {
         branchAddress: offerDto.branchAddress,
+      }),
+      ...(offerDto.autoConfirmBooking !== undefined && {
+        autoConfirmBooking: offerDto.autoConfirmBooking,
       }),
       slug:
         offerDto.slug ??

@@ -166,6 +166,15 @@ export class CreateOfferDto {
   branchAddress?: string;
 
   @ApiPropertyOptional({
+    example: false,
+    description: 'Автоподтверждение брони без участия продавца',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoConfirmBooking?: boolean;
+
+  @ApiPropertyOptional({
     description: 'ID автора (берётся из JWT, не нужно передавать явно)',
   })
   @IsOptional()

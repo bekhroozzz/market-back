@@ -12,6 +12,12 @@ export enum NotificationType {
   OFFER_UPDATED = 'offer_updated',
   OFFER_APPROVED = 'offer_approved',
   OFFER_REJECTED = 'offer_rejected',
+  BOOKING_NEW = 'booking_new',
+  BOOKING_CONFIRMED = 'booking_confirmed',
+  BOOKING_REJECTED = 'booking_rejected',
+  BOOKING_CANCELLED = 'booking_cancelled',
+  BOOKING_ACTIVATED = 'booking_activated',
+  BOOKING_COMPLETED = 'booking_completed',
 }
 
 @Entity({ name: 'notifications' })

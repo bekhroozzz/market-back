@@ -34,7 +34,9 @@ function imageFileFilter(
     cb(null, true);
   } else {
     cb(
-      new BadRequestException('Only JPEG, PNG, WebP and GIF images are allowed'),
+      new BadRequestException(
+        'Only JPEG, PNG, WebP and GIF images are allowed',
+      ),
       false,
     );
   }
@@ -51,7 +53,10 @@ export class UploadController {
       storage: diskStorage({
         destination: join(process.cwd(), 'uploads', 'images'),
         filename: (_req, file, cb) => {
-          cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`);
+          cb(
+            null,
+            `${randomUUID()}${extname(file.originalname).toLowerCase()}`,
+          );
         },
       }),
       limits: { fileSize: 5 * 1024 * 1024 },
@@ -69,7 +74,9 @@ export class UploadController {
   })
   @ApiResponse({
     status: 201,
-    schema: { example: { url: 'http://localhost:4000/uploads/images/abc.jpg' } },
+    schema: {
+      example: { url: 'http://localhost:4000/uploads/images/abc.jpg' },
+    },
   })
   @HttpCode(HttpStatus.CREATED)
   uploadImage(@UploadedFile() file: Express.Multer.File) {

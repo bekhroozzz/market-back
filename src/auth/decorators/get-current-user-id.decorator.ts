@@ -9,4 +9,4 @@ export const GetCurrentUserId = createParamDecorator(
     }
     return user.sub;
   },
-); 
+);

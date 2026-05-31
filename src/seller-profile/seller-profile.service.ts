@@ -6,7 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { SellerProfileEntity, GalleryImage } from './entities/seller-profile.entity';
+import {
+  SellerProfileEntity,
+  GalleryImage,
+} from './entities/seller-profile.entity';
 import { UpdateSellerProfileDto } from './dto/update-seller-profile.dto';
 import { OfferEntity } from '../offer/entities/offer.entity';
 import { User } from '../user/entities/user.entity';
@@ -30,7 +33,9 @@ export class SellerProfileService {
     page = 1,
     limit = 12,
   ): Promise<SellerPublicResponseDto> {
-    const seller = await this.userRepository.findOne({ where: { id: sellerId } });
+    const seller = await this.userRepository.findOne({
+      where: { id: sellerId },
+    });
     if (!seller) throw new NotFoundException('Seller not found');
 
     const profile = await this.profileRepository.findOne({

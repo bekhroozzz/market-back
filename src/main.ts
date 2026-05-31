@@ -7,6 +7,7 @@ import * as dotenv from 'dotenv';
 import { ClassSerializerInterceptor } from '@nestjs/common';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 dotenv.config();
 
@@ -17,12 +18,15 @@ dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useWebSocketAdapter(new IoAdapter(app));
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:5173',
     'http://localhost:5173/',
+    'http://localhost:3000',
+    'http://localhost:3000/',
   ].filter((origin): origin is string => Boolean(origin));
   app.enableCors({
     origin: allowedOrigins,

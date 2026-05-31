@@ -2,7 +2,6 @@ import {
   ConflictException,
   Injectable,
   UnauthorizedException,
-  BadRequestException,
 } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
@@ -11,12 +10,9 @@ import { SignUpDto } from './dto/signup-auth.dto';
 import * as bcrypt from 'bcrypt';
 import { SignInDto } from './dto/signin-auth.dto';
 import { Role } from '../user/enums/role.enum';
-import * as FormData from 'form-data';
-import Mailgun from 'mailgun.js';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EmailVerification } from './entities/email-verification.entity';
-import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {

@@ -9,6 +9,7 @@ import { ChatMessageEntity } from './entities/chat-message.entity';
 import { OfferEntity } from '../offer/entities/offer.entity';
 import { User } from '../user/entities/user.entity';
 import { NotificationModule } from '../notification/notification.module';
+import { Module } from '@nestjs/common';
 
 @Module({
   imports: [

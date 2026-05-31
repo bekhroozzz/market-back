@@ -36,7 +36,12 @@ export class SellerProfileEntity {
   user: User;
 
   @ApiPropertyOptional({ example: 'ООО «ТехноМир»' })
-  @Column({ name: 'company_name', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'company_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   companyName: string | null;
 
   @ApiPropertyOptional({ example: 'Мы продаём лучшую технику с 2010 года.' })

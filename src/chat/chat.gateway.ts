@@ -51,7 +51,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Join personal room so we can push notifications
       await client.join(`user:${payload.sub}`);
-      this.logger.log(`Client connected: userId=${payload.sub} socketId=${client.id}`);
+      this.logger.log(
+        `Client connected: userId=${payload.sub} socketId=${client.id}`,
+      );
     } catch {
       client.disconnect(true);
     }

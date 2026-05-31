@@ -1,4 +1,3 @@
-import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -13,7 +12,12 @@ import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ChatEntity, ChatMessageEntity, OfferEntity, User]),
+    TypeOrmModule.forFeature([
+      ChatEntity,
+      ChatMessageEntity,
+      OfferEntity,
+      User,
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

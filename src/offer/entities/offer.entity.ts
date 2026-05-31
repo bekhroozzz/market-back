@@ -112,7 +112,9 @@ export class OfferEntity {
    * day: 0=Monday … 6=Sunday
    */
   @ApiPropertyOptional({
-    example: [{ day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false }],
+    example: [
+      { day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false },
+    ],
     type: 'array',
   })
   @Column({ type: 'jsonb', nullable: true, default: [] })
@@ -121,7 +123,10 @@ export class OfferEntity {
   /**
    * Key features / amenities of the venue (Wi-Fi, Parking, Terrace, etc.)
    */
-  @ApiPropertyOptional({ example: ['Wi-Fi', 'Парковка', 'Терраса'], type: [String] })
+  @ApiPropertyOptional({
+    example: ['Wi-Fi', 'Парковка', 'Терраса'],
+    type: [String],
+  })
   @Column('text', { array: true, nullable: true, default: [] })
   features: string[];
 

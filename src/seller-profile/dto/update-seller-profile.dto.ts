@@ -18,7 +18,9 @@ export class UpdateSellerProfileDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   companyName?: string;
 
-  @ApiPropertyOptional({ example: 'Мы занимаемся продажей техники с 2010 года.' })
+  @ApiPropertyOptional({
+    example: 'Мы занимаемся продажей техники с 2010 года.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(3000)

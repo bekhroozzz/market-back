@@ -13,7 +13,11 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { AttributeEntry, WorkScheduleDay, PriceTariff } from '../entities/offer.entity';
+import {
+  AttributeEntry,
+  WorkScheduleDay,
+  PriceTariff,
+} from '../entities/offer.entity';
 
 export class AttributeEntryDto implements AttributeEntry {
   @IsString()
@@ -119,7 +123,9 @@ export class CreateOfferDto {
   attributes?: AttributeEntryDto[];
 
   @ApiPropertyOptional({
-    example: [{ day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false }],
+    example: [
+      { day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false },
+    ],
     type: [WorkScheduleDayDto],
     description: 'График работы (0=Пн … 6=Вс)',
   })
@@ -159,7 +165,9 @@ export class CreateOfferDto {
   @IsString()
   branchAddress?: string;
 
-  @ApiPropertyOptional({ description: 'ID автора (берётся из JWT, не нужно передавать явно)' })
+  @ApiPropertyOptional({
+    description: 'ID автора (берётся из JWT, не нужно передавать явно)',
+  })
   @IsOptional()
   @IsString()
   authorId?: string;

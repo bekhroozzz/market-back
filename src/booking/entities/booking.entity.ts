@@ -60,4 +60,4 @@ export class BookingEntity {
 
   @UpdateDateColumn()
   updatedAt: Date;
-} 
+}

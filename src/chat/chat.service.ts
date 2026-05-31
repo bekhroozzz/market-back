@@ -72,10 +72,7 @@ export class ChatService {
    * List chats for the current user (buyer or seller).
    * Admin sees all chats.
    */
-  async listChats(
-    userId: number,
-    role: Role,
-  ): Promise<ChatEntity[]> {
+  async listChats(userId: number, role: Role): Promise<ChatEntity[]> {
     const qb = this.chatRepo
       .createQueryBuilder('chat')
       .leftJoinAndSelect('chat.offer', 'offer')
@@ -128,7 +125,15 @@ export class ChatService {
     const [data, total] = await this.messageRepo
       .createQueryBuilder('msg')
       .where('msg.chatId = :chatId', { chatId })
-      .select(['msg.id', 'msg.chatId', 'msg.senderId', 'msg.message', 'msg.isRead', 'msg.readAt', 'msg.createdAt'])
+      .select([
+        'msg.id',
+        'msg.chatId',
+        'msg.senderId',
+        'msg.message',
+        'msg.isRead',
+        'msg.readAt',
+        'msg.createdAt',
+      ])
       .orderBy('msg.createdAt', 'DESC')
       .skip((page - 1) * MESSAGES_PAGE_SIZE)
       .take(MESSAGES_PAGE_SIZE)
@@ -173,7 +178,10 @@ export class ChatService {
       userId: recipientId,
       type: NotificationType.NEW_MESSAGE,
       title: 'Новое сообщение',
-      body: dto.message.length > 100 ? dto.message.slice(0, 97) + '...' : dto.message,
+      body:
+        dto.message.length > 100
+          ? dto.message.slice(0, 97) + '...'
+          : dto.message,
       entityId: chatId,
     });
 
@@ -198,20 +206,28 @@ export class ChatService {
       .createQueryBuilder()
       .update()
       .set({ isRead: true, readAt: now })
-      .where('chatId = :chatId AND senderId != :userId AND isRead = false', { chatId, userId })
+      .where('chatId = :chatId AND senderId != :userId AND isRead = false', {
+        chatId,
+        userId,
+      })
       .execute();
 
     const isSeller = chat.sellerId === userId;
-    await this.chatRepo.update(chatId, {
-      unreadForSeller: isSeller ? 0 : chat.unreadForSeller,
-      unreadForBuyer: isSeller ? chat.unreadForBuyer : 0,
-    });
+    if (isSeller) {
+      await this.chatRepo.update(chatId, { unreadForSeller: 0 });
+    } else {
+      await this.chatRepo.update(chatId, { unreadForBuyer: 0 });
+    }
   }
 
   /**
    * Get a single chat by id (admin or participant).
    */
-  async getChatById(chatId: string, userId: number, role: Role): Promise<ChatEntity> {
+  async getChatById(
+    chatId: string,
+    userId: number,
+    role: Role,
+  ): Promise<ChatEntity> {
     await this.assertChatAccess(chatId, userId, role);
     const chat = await this.chatRepo.findOne({
       where: { id: chatId },
@@ -239,18 +255,29 @@ export class ChatService {
       .loadRelationCountAndMap('chat.messageCount', 'chat.messages')
       .orderBy('chat.lastMessageAt', 'DESC', 'NULLS LAST');
 
-    if (filters.sellerId) qb.andWhere('chat.sellerId = :sellerId', { sellerId: filters.sellerId });
-    if (filters.buyerId) qb.andWhere('chat.buyerId = :buyerId', { buyerId: filters.buyerId });
-    if (filters.offerId) qb.andWhere('chat.offerId = :offerId', { offerId: filters.offerId });
-    if (filters.dateFrom) qb.andWhere('chat.createdAt >= :dateFrom', { dateFrom: filters.dateFrom });
-    if (filters.dateTo) qb.andWhere('chat.createdAt <= :dateTo', { dateTo: filters.dateTo });
+    if (filters.sellerId)
+      qb.andWhere('chat.sellerId = :sellerId', { sellerId: filters.sellerId });
+    if (filters.buyerId)
+      qb.andWhere('chat.buyerId = :buyerId', { buyerId: filters.buyerId });
+    if (filters.offerId)
+      qb.andWhere('chat.offerId = :offerId', { offerId: filters.offerId });
+    if (filters.dateFrom)
+      qb.andWhere('chat.createdAt >= :dateFrom', {
+        dateFrom: filters.dateFrom,
+      });
+    if (filters.dateTo)
+      qb.andWhere('chat.createdAt <= :dateTo', { dateTo: filters.dateTo });
 
     return qb.getMany();
   }
 
   // ─── Private ──────────────────────────────────────────────────────────────
 
-  private async assertChatAccess(chatId: string, userId: number, role: Role): Promise<void> {
+  private async assertChatAccess(
+    chatId: string,
+    userId: number,
+    role: Role,
+  ): Promise<void> {
     if (role === Role.Admin) return;
     const chat = await this.chatRepo.findOne({
       where: { id: chatId },

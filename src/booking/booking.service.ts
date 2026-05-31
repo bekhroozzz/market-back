@@ -71,7 +71,8 @@ export class BookingService {
       relations: ['author'],
     });
     if (!offer) throw new NotFoundException('Оффер не найден');
-    if (userRole !== Role.Admin && offer.author.id !== userId) throw new ForbiddenException('Нет доступа');
+    if (userRole !== Role.Admin && offer.author.id !== userId)
+      throw new ForbiddenException('Нет доступа');
     return this.bookingRepository.find({
       where: { offer: { id: offerId } },
       relations: ['user', 'offer'],

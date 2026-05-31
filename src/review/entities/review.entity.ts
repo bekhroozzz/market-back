@@ -38,7 +38,9 @@ export class ReviewEntity {
   @Column({ name: 'offer_id', type: 'uuid' })
   offerId: string;
 
-  @ManyToOne(() => OfferEntity, (offer) => offer.reviews, { onDelete: 'CASCADE' })
+  @ManyToOne(() => OfferEntity, (offer) => offer.reviews, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'offer_id' })
   offer: OfferEntity;
 

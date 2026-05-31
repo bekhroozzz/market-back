@@ -33,10 +33,7 @@ export class ChatController {
 
   @Post('open')
   @ApiOperation({ summary: 'Создать или открыть существующий чат' })
-  async openChat(
-    @Body() dto: OpenChatDto,
-    @GetCurrentUserId() userId: number,
-  ) {
+  async openChat(@Body() dto: OpenChatDto, @GetCurrentUserId() userId: number) {
     const chat = await this.chatService.openChat(dto, userId);
     this.chatGateway.emitChatCreated(chat, userId);
     return chat;
@@ -78,12 +75,12 @@ export class ChatController {
     @Param('id', ParseUUIDPipe) chatId: string,
     @Body() dto: SendMessageDto,
     @GetCurrentUserId() userId: number,
-    @GetCurrentUser() user: JwtPayload,
+    // @GetCurrentUser() user: JwtPayload,
   ) {
-    const chat = await this.chatService.getChatById(chatId, userId, user.role);
+    // const chat = await this.chatService.getChatById(chatId, userId, user.role);
     const message = await this.chatService.sendMessage(chatId, dto, userId);
 
-    const recipientId = chat.sellerId === userId ? chat.buyerId : chat.sellerId;
+    // const recipientId = chat.sellerId === userId ? chat.buyerId : chat.sellerId;
     this.chatGateway.emitMessageCreated(chatId, message);
 
     return message;
@@ -94,7 +91,7 @@ export class ChatController {
   async markRead(
     @Param('id', ParseUUIDPipe) chatId: string,
     @GetCurrentUserId() userId: number,
-    @GetCurrentUser() user: JwtPayload,
+    // @GetCurrentUser() user: JwtPayload,
   ) {
     await this.chatService.markRead(chatId, userId);
     this.chatGateway.emitMessageRead(chatId, userId);

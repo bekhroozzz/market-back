@@ -41,7 +41,11 @@ export class NotificationService {
     });
   }
 
-  async getForUser(userId: number, page = 1, limit = 20): Promise<{ data: NotificationEntity[]; total: number }> {
+  async getForUser(
+    userId: number,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: NotificationEntity[]; total: number }> {
     const [data, total] = await this.repo.findAndCount({
       where: { userId },
       order: { createdAt: 'DESC' },

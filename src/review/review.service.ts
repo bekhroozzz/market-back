@@ -41,7 +41,9 @@ export class ReviewService {
   }
 
   async deleteReview(reviewId: string): Promise<void> {
-    const review = await this.reviewRepository.findOne({ where: { id: reviewId } });
+    const review = await this.reviewRepository.findOne({
+      where: { id: reviewId },
+    });
     if (!review) throw new NotFoundException('Отзыв не найден');
 
     const offerId = review.offerId;
@@ -57,7 +59,9 @@ export class ReviewService {
       .where('review.offerId = :offerId', { offerId })
       .getRawOne<{ avg: string | null; count: string }>();
 
-    const avgRating = result?.avg ? Math.round(parseFloat(result.avg) * 100) / 100 : 0;
+    const avgRating = result?.avg
+      ? Math.round(parseFloat(result.avg) * 100) / 100
+      : 0;
     const count = parseInt(result?.count ?? '0', 10);
 
     await this.offerService.updateRatingStats(offerId, avgRating, count);

@@ -10,10 +10,39 @@ import { SellerProfileService } from '../seller-profile/seller-profile.service';
 
 function generateSlug(title: string): string {
   const cyrillicMap: Record<string, string> = {
-    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh',
-    з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o',
-    п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts',
-    ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+    а: 'a',
+    б: 'b',
+    в: 'v',
+    г: 'g',
+    д: 'd',
+    е: 'e',
+    ё: 'yo',
+    ж: 'zh',
+    з: 'z',
+    и: 'i',
+    й: 'y',
+    к: 'k',
+    л: 'l',
+    м: 'm',
+    н: 'n',
+    о: 'o',
+    п: 'p',
+    р: 'r',
+    с: 's',
+    т: 't',
+    у: 'u',
+    ф: 'f',
+    х: 'kh',
+    ц: 'ts',
+    ч: 'ch',
+    ш: 'sh',
+    щ: 'shch',
+    ъ: '',
+    ы: 'y',
+    ь: '',
+    э: 'e',
+    ю: 'yu',
+    я: 'ya',
   };
 
   return title
@@ -38,7 +67,16 @@ export class OfferService {
     private readonly sellerProfileService: SellerProfileService,
   ) {}
 
-  async findAll(page = 1, limit = 20): Promise<{ items: OfferEntity[]; total: number; page: number; limit: number; pages: number }> {
+  async findAll(
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    items: OfferEntity[];
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }> {
     const take = Math.min(Math.max(limit, 1), 100);
     const skip = (Math.max(page, 1) - 1) * take;
 
@@ -49,7 +87,13 @@ export class OfferService {
       skip,
     });
 
-    return { items, total, page: Math.max(page, 1), limit: take, pages: Math.ceil(total / take) };
+    return {
+      items,
+      total,
+      page: Math.max(page, 1),
+      limit: take,
+      pages: Math.ceil(total / take),
+    };
   }
 
   async findBySlug(slug: string): Promise<OfferEntity> {
@@ -87,12 +131,15 @@ export class OfferService {
     let branchAddress = offerDto.branchAddress;
     if (!branchAddress && !isNaN(authorId)) {
       try {
-        const profile = await this.sellerProfileService.getOrCreateProfile(authorId);
+        const profile =
+          await this.sellerProfileService.getOrCreateProfile(authorId);
         if (profile.branches?.length) {
           branchAddress = profile.branches[0].address;
         }
       } catch (err) {
-        this.logger.warn(`Failed to load seller profile for branchAddress: ${(err as Error).message}`);
+        this.logger.warn(
+          `Failed to load seller profile for branchAddress: ${(err as Error).message}`,
+        );
       }
     }
 
@@ -119,7 +166,9 @@ export class OfferService {
     const savedOffer = await this.findById(saved.id);
 
     this.offerIndexer.upsertOffer(savedOffer.id).catch((err: Error) => {
-      this.logger.warn(`[OpenSearch] Failed to index offer ${savedOffer.id}: ${err.message}`);
+      this.logger.warn(
+        `[OpenSearch] Failed to index offer ${savedOffer.id}: ${err.message}`,
+      );
     });
 
     return savedOffer;
@@ -130,19 +179,29 @@ export class OfferService {
 
     Object.assign(existing, {
       ...(offerDto.title !== undefined && { title: offerDto.title }),
-      ...(offerDto.description !== undefined && { description: offerDto.description }),
+      ...(offerDto.description !== undefined && {
+        description: offerDto.description,
+      }),
       ...(offerDto.images !== undefined && { images: offerDto.images }),
       ...(offerDto.price !== undefined && { price: offerDto.price }),
       ...(offerDto.oldPrice !== undefined && { oldPrice: offerDto.oldPrice }),
       ...(offerDto.prices !== undefined && { prices: offerDto.prices }),
       ...(offerDto.inStock !== undefined && { inStock: offerDto.inStock }),
       ...(offerDto.brandId !== undefined && { brandId: offerDto.brandId }),
-      ...(offerDto.attributes !== undefined && { attributes: offerDto.attributes }),
-      ...(offerDto.workSchedule !== undefined && { workSchedule: offerDto.workSchedule }),
+      ...(offerDto.attributes !== undefined && {
+        attributes: offerDto.attributes,
+      }),
+      ...(offerDto.workSchedule !== undefined && {
+        workSchedule: offerDto.workSchedule,
+      }),
       ...(offerDto.features !== undefined && { features: offerDto.features }),
       ...(offerDto.rules !== undefined && { rules: offerDto.rules }),
-      ...(offerDto.categoryId !== undefined && { category_id: offerDto.categoryId }),
-      ...(offerDto.branchAddress !== undefined && { branchAddress: offerDto.branchAddress }),
+      ...(offerDto.categoryId !== undefined && {
+        category_id: offerDto.categoryId,
+      }),
+      ...(offerDto.branchAddress !== undefined && {
+        branchAddress: offerDto.branchAddress,
+      }),
       slug:
         offerDto.slug ??
         (offerDto.title ? generateSlug(offerDto.title) : existing.slug),
@@ -152,7 +211,9 @@ export class OfferService {
     const savedOffer = await this.findById(saved.id);
 
     this.offerIndexer.upsertOffer(savedOffer.id).catch((err: Error) => {
-      this.logger.warn(`[OpenSearch] Failed to update offer ${savedOffer.id}: ${err.message}`);
+      this.logger.warn(
+        `[OpenSearch] Failed to update offer ${savedOffer.id}: ${err.message}`,
+      );
     });
 
     return savedOffer;
@@ -163,14 +224,23 @@ export class OfferService {
     const removed = await this.offerRepository.remove(offer);
 
     this.offerIndexer.removeOffer(id).catch((err: Error) => {
-      this.logger.warn(`[OpenSearch] Failed to remove offer ${id} from index: ${err.message}`);
+      this.logger.warn(
+        `[OpenSearch] Failed to remove offer ${id} from index: ${err.message}`,
+      );
     });
 
     return removed;
   }
 
   /** Called by ReviewService after a review is created/deleted to keep rating in sync. */
-  async updateRatingStats(id: string, avgRating: number, count: number): Promise<void> {
-    await this.offerRepository.update(id, { rating: avgRating, reviewCount: count });
+  async updateRatingStats(
+    id: string,
+    avgRating: number,
+    count: number,
+  ): Promise<void> {
+    await this.offerRepository.update(id, {
+      rating: avgRating,
+      reviewCount: count,
+    });
   }
 }

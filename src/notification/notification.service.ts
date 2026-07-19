@@ -1,6 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import {
   NotificationEntity,
   NotificationType,
@@ -21,16 +25,23 @@ export class NotificationService {
     private readonly repo: Repository<NotificationEntity>,
   ) {}
 
-  async create(dto: CreateNotificationDto): Promise<NotificationEntity> {
-    const notification = this.repo.create({
+  async create(
+    dto: CreateNotificationDto,
+    manager?: EntityManager,
+    isRead = false,
+  ): Promise<NotificationEntity> {
+    const repo = manager
+      ? manager.getRepository(NotificationEntity)
+      : this.repo;
+    const notification = repo.create({
       userId: dto.userId,
       type: dto.type,
       title: dto.title,
       body: dto.body,
       entityId: dto.entityId ?? null,
-      isRead: false,
+      isRead,
     });
-    return this.repo.save(notification);
+    return repo.save(notification);
   }
 
   async getUnreadForUser(userId: number): Promise<NotificationEntity[]> {
@@ -46,6 +57,8 @@ export class NotificationService {
     page = 1,
     limit = 20,
   ): Promise<{ data: NotificationEntity[]; total: number }> {
+    if (!Number.isInteger(page) || page < 1)
+      throw new BadRequestException('Страница должна быть не меньше 1');
     const [data, total] = await this.repo.findAndCount({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -56,11 +69,35 @@ export class NotificationService {
   }
 
   async markRead(notificationId: string, userId: number): Promise<void> {
-    await this.repo.update({ id: notificationId, userId }, { isRead: true });
+    const result = await this.repo.update(
+      { id: notificationId, userId, isRead: false },
+      { isRead: true },
+    );
+    if (result.affected) return;
+
+    const owned = await this.repo.exists({
+      where: { id: notificationId, userId },
+    });
+    if (!owned) throw new NotFoundException('Уведомление не найдено');
   }
 
   async markAllRead(userId: number): Promise<void> {
     await this.repo.update({ userId, isRead: false }, { isRead: true });
+  }
+
+  async markByEntityAndType(
+    userId: number,
+    entityId: string,
+    type: NotificationType,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager
+      ? manager.getRepository(NotificationEntity)
+      : this.repo;
+    await repo.update(
+      { userId, entityId, type, isRead: false },
+      { isRead: true },
+    );
   }
 
   async getUnreadCount(userId: number): Promise<number> {

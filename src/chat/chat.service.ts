@@ -1,17 +1,14 @@
 import {
   BadRequestException,
   ForbiddenException,
-  forwardRef,
-  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { ChatEntity } from './entities/chat.entity';
 import { ChatMessageEntity } from './entities/chat-message.entity';
 import { OfferEntity } from '../offer/entities/offer.entity';
-import { User } from '../user/entities/user.entity';
 import { Role } from '../user/enums/role.enum';
 import { OpenChatDto } from './dto/open-chat.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -20,6 +17,22 @@ import { NotificationType } from '../notification/entities/notification.entity';
 import { ChatGateway } from './chat.gateway';
 
 const MESSAGES_PAGE_SIZE = 40;
+const CHAT_RELATIONS = ['offer', 'seller', 'buyer', 'lastMessage'];
+
+export interface OpenChatResult {
+  chat: ChatEntity;
+  created: boolean;
+}
+
+export interface SendMessageResult {
+  message: ChatMessageEntity;
+  chat: ChatEntity;
+}
+
+export interface MarkReadResult {
+  chat: ChatEntity;
+  readAt: Date;
+}
 
 @Injectable()
 export class ChatService {
@@ -30,17 +43,15 @@ export class ChatService {
     private readonly messageRepo: Repository<ChatMessageEntity>,
     @InjectRepository(OfferEntity)
     private readonly offerRepo: Repository<OfferEntity>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
     private readonly notificationService: NotificationService,
-    @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway: ChatGateway,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
    * Open or return existing chat (buyer → seller per offer).
    */
-  async openChat(dto: OpenChatDto, buyerId: number): Promise<ChatEntity> {
+  async openChat(dto: OpenChatDto, buyerId: number): Promise<OpenChatResult> {
     const offer = await this.offerRepo.findOne({
       where: { id: dto.offerId },
       select: ['id', 'title'],
@@ -54,9 +65,9 @@ export class ChatService {
 
     const existing = await this.chatRepo.findOne({
       where: { offerId: dto.offerId, buyerId },
-      relations: ['offer', 'seller', 'buyer', 'lastMessage'],
+      relations: CHAT_RELATIONS,
     });
-    if (existing) return existing;
+    if (existing) return { chat: existing, created: false };
 
     const chat = this.chatRepo.create({
       offerId: dto.offerId,
@@ -65,7 +76,22 @@ export class ChatService {
       lastMessageAt: null,
       lastMessageId: null,
     });
-    return this.chatRepo.save(chat);
+    try {
+      const saved = await this.chatRepo.save(chat);
+      return {
+        chat: await this.loadRelatedChat(saved.id),
+        created: true,
+      };
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+
+      const concurrent = await this.chatRepo.findOne({
+        where: { offerId: dto.offerId, buyerId },
+        relations: CHAT_RELATIONS,
+      });
+      if (!concurrent) throw error;
+      return { chat: concurrent, created: false };
+    }
   }
 
   /**
@@ -120,6 +146,8 @@ export class ChatService {
     role: Role,
     page: number,
   ): Promise<{ data: ChatMessageEntity[]; total: number }> {
+    if (!Number.isInteger(page) || page < 1)
+      throw new BadRequestException('Страница должна быть не меньше 1');
     await this.assertChatAccess(chatId, userId, role);
 
     const [data, total] = await this.messageRepo
@@ -149,75 +177,139 @@ export class ChatService {
     chatId: string,
     dto: SendMessageDto,
     senderId: number,
-  ): Promise<ChatMessageEntity> {
+  ): Promise<SendMessageResult> {
+    const messageText = dto.message?.trim();
+    if (!messageText)
+      throw new BadRequestException('Сообщение не может быть пустым');
+
     const chat = await this.chatRepo.findOne({ where: { id: chatId } });
     if (!chat) throw new NotFoundException('Чат не найден');
 
     if (chat.sellerId !== senderId && chat.buyerId !== senderId)
       throw new ForbiddenException('Нет доступа к чату');
 
-    const msg = this.messageRepo.create({
-      chatId,
-      senderId,
-      message: dto.message,
-      isRead: false,
-      readAt: null,
-    });
-    const saved = await this.messageRepo.save(msg);
-
     const isSeller = chat.sellerId === senderId;
-    await this.chatRepo.update(chatId, {
-      lastMessageId: saved.id,
-      lastMessageAt: saved.createdAt,
-      unreadForSeller: isSeller ? 0 : chat.unreadForSeller + 1,
-      unreadForBuyer: isSeller ? chat.unreadForBuyer + 1 : 0,
-    });
-
     const recipientId = isSeller ? chat.buyerId : chat.sellerId;
-    const notification = await this.notificationService.create({
-      userId: recipientId,
-      type: NotificationType.NEW_MESSAGE,
-      title: 'Новое сообщение',
-      body:
-        dto.message.length > 100
-          ? dto.message.slice(0, 97) + '...'
-          : dto.message,
-      entityId: chatId,
-    });
+    const recipientIsActive = await this.chatGateway.isUserActiveInChat(
+      recipientId,
+      chatId,
+    );
 
-    // Emit real-time notification to recipient's personal room
-    this.chatGateway.emitNotification(notification, recipientId);
+    const { saved, notification } = await this.dataSource.transaction(
+      async (manager) => {
+        const lockedChat = await manager.getRepository(ChatEntity).findOne({
+          where: { id: chatId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!lockedChat) throw new NotFoundException('Чат не найден');
+        if (
+          lockedChat.sellerId !== senderId &&
+          lockedChat.buyerId !== senderId
+        )
+          throw new ForbiddenException('Нет доступа к чату');
 
-    return saved;
+        const messageRepo = manager.getRepository(ChatMessageEntity);
+        const msg = messageRepo.create({
+          chatId,
+          senderId,
+          message: messageText,
+          isRead: false,
+          readAt: null,
+        });
+        const savedMessage = await messageRepo.save(msg);
+
+        const counter = isSeller ? 'unreadForBuyer' : 'unreadForSeller';
+        await manager
+          .getRepository(ChatEntity)
+          .createQueryBuilder()
+          .update()
+          .set({
+            lastMessageId: savedMessage.id,
+            lastMessageAt: savedMessage.createdAt,
+            [counter]: () => `"${counter}" + 1`,
+          })
+          .where('id = :chatId', { chatId })
+          .execute();
+
+        const savedNotification = await this.notificationService.create(
+          {
+            userId: recipientId,
+            type: NotificationType.NEW_MESSAGE,
+            title: 'Новое сообщение',
+            body:
+              messageText.length > 100
+                ? messageText.slice(0, 97) + '...'
+                : messageText,
+            entityId: chatId,
+          },
+          manager,
+          recipientIsActive,
+        );
+
+        return {
+          saved: savedMessage,
+          notification: savedNotification,
+        };
+      },
+    );
+
+    if (!recipientIsActive) {
+      this.chatGateway.emitNotification(notification, recipientId);
+    }
+
+    return {
+      message: saved,
+      chat: await this.loadRelatedChat(chatId),
+    };
   }
 
   /**
    * Mark all unread messages in a chat as read for the current user.
    */
-  async markRead(chatId: string, userId: number): Promise<void> {
-    const chat = await this.chatRepo.findOne({ where: { id: chatId } });
-    if (!chat) throw new NotFoundException('Чат не найден');
-
-    if (chat.sellerId !== userId && chat.buyerId !== userId)
-      throw new ForbiddenException('Нет доступа к чату');
-
+  async markRead(chatId: string, userId: number): Promise<MarkReadResult> {
     const now = new Date();
-    await this.messageRepo
-      .createQueryBuilder()
-      .update()
-      .set({ isRead: true, readAt: now })
-      .where('chatId = :chatId AND senderId != :userId AND isRead = false', {
-        chatId,
-        userId,
-      })
-      .execute();
+    await this.dataSource.transaction(async (manager) => {
+      const chat = await manager.getRepository(ChatEntity).findOne({
+        where: { id: chatId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!chat) throw new NotFoundException('Чат не найден');
+      if (chat.sellerId !== userId && chat.buyerId !== userId)
+        throw new ForbiddenException('Нет доступа к чату');
 
-    const isSeller = chat.sellerId === userId;
-    if (isSeller) {
-      await this.chatRepo.update(chatId, { unreadForSeller: 0 });
-    } else {
-      await this.chatRepo.update(chatId, { unreadForBuyer: 0 });
-    }
+      await manager
+        .getRepository(ChatMessageEntity)
+        .createQueryBuilder()
+        .update()
+        .set({ isRead: true, readAt: now })
+        .where('chatId = :chatId AND senderId != :userId AND isRead = false', {
+          chatId,
+          userId,
+        })
+        .execute();
+
+      const counter =
+        chat.sellerId === userId ? 'unreadForSeller' : 'unreadForBuyer';
+      await manager
+        .getRepository(ChatEntity)
+        .createQueryBuilder()
+        .update()
+        .set({ [counter]: 0 })
+        .where('id = :chatId', { chatId })
+        .execute();
+
+      await this.notificationService.markByEntityAndType(
+        userId,
+        chatId,
+        NotificationType.NEW_MESSAGE,
+        manager,
+      );
+    });
+
+    return {
+      chat: await this.loadRelatedChat(chatId),
+      readAt: now,
+    };
   }
 
   /**
@@ -231,7 +323,7 @@ export class ChatService {
     await this.assertChatAccess(chatId, userId, role);
     const chat = await this.chatRepo.findOne({
       where: { id: chatId },
-      relations: ['offer', 'seller', 'buyer', 'lastMessage'],
+      relations: CHAT_RELATIONS,
     });
     if (!chat) throw new NotFoundException('Чат не найден');
     return chat;
@@ -286,5 +378,22 @@ export class ChatService {
     if (!chat) throw new NotFoundException('Чат не найден');
     if (chat.sellerId !== userId && chat.buyerId !== userId)
       throw new ForbiddenException('Нет доступа к чату');
+  }
+
+  private async loadRelatedChat(chatId: string): Promise<ChatEntity> {
+    const chat = await this.chatRepo.findOne({
+      where: { id: chatId },
+      relations: CHAT_RELATIONS,
+    });
+    if (!chat) throw new NotFoundException('Чат не найден');
+    return chat;
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof QueryFailedError &&
+      (error as QueryFailedError & { driverError?: { code?: string } })
+        .driverError?.code === '23505'
+    );
   }
 }

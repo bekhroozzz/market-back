@@ -12,8 +12,17 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { isUUID } from 'class-validator';
+import { ChatEntity } from './entities/chat.entity';
+import { Role } from '../user/enums/role.enum';
 
-export type AuthSocket = Socket & { userId: number; userRole: string };
+export type AuthSocket = Socket & {
+  userId: number;
+  userRole: string;
+  data: { userId: number; userRole: string };
+};
 
 @WebSocketGateway({
   cors: {
@@ -31,6 +40,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @InjectRepository(ChatEntity)
+    private readonly chatRepo: Repository<ChatEntity>,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -46,11 +57,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         { secret: this.configService.get<string>('JWT_SECRET') },
       );
 
-      (client as AuthSocket).userId = Number(payload.sub);
+      const userId = Number(payload.sub);
+      if (!Number.isSafeInteger(userId) || userId <= 0)
+        throw new WsException('Invalid user');
+
+      (client as AuthSocket).userId = userId;
       (client as AuthSocket).userRole = payload.role;
+      client.data.userId = userId;
+      client.data.userRole = payload.role;
 
       // Join personal room so we can push notifications
-      await client.join(`user:${payload.sub}`);
+      await client.join(`user:${userId}`);
       this.logger.log(
         `Client connected: userId=${payload.sub} socketId=${client.id}`,
       );
@@ -69,8 +86,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AuthSocket,
     @MessageBody() data: { chatId: string },
   ) {
-    if (!data?.chatId) return;
+    if (!isUUID(data?.chatId)) throw new WsException('Invalid chatId');
+
+    if (client.userRole !== Role.Admin) {
+      const allowed = await this.chatRepo.exists({
+        where: [
+          { id: data.chatId, sellerId: client.userId },
+          { id: data.chatId, buyerId: client.userId },
+        ],
+      });
+      if (!allowed) throw new WsException('Chat access denied');
+    }
+
     await client.join(`chat:${data.chatId}`);
+    return { ok: true };
   }
 
   /** Leave a chat room */
@@ -79,14 +108,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: AuthSocket,
     @MessageBody() data: { chatId: string },
   ) {
-    if (!data?.chatId) return;
+    if (!isUUID(data?.chatId)) throw new WsException('Invalid chatId');
     await client.leave(`chat:${data.chatId}`);
+    return { ok: true };
   }
 
   // ─── Server-side emit helpers (called by ChatService) ─────────────────────
 
-  emitChatCreated(chat: unknown, userId: number) {
-    this.server.to(`user:${userId}`).emit('chat.created', chat);
+  emitChatCreated(chat: unknown, userIds: number[]) {
+    for (const userId of new Set(userIds)) {
+      this.server.to(`user:${userId}`).emit('chat.created', chat);
+    }
+  }
+
+  emitChatUpdated(chat: unknown, userIds: number[]) {
+    for (const userId of new Set(userIds)) {
+      this.server.to(`user:${userId}`).emit('chat.updated', chat);
+    }
   }
 
   emitMessageCreated(chatId: string, message: unknown) {
@@ -96,9 +134,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`chat:${chatId}`).emit('message.created', message);
   }
 
-  emitMessageRead(chatId: string, userId: number) {
-    this.server.to(`chat:${chatId}`).emit('message.read', { chatId });
-    this.server.to(`user:${userId}`).emit('message.read', { chatId });
+  emitMessageRead(chatId: string, readerId: number, readAt: Date) {
+    const payload = { chatId, readerId, readAt };
+    this.server.to(`chat:${chatId}`).emit('message.read', payload);
+  }
+
+  async isUserActiveInChat(userId: number, chatId: string): Promise<boolean> {
+    if (!this.server || !isUUID(chatId)) return false;
+    const sockets = await this.server.in(`chat:${chatId}`).fetchSockets();
+    return sockets.some((socket) => Number(socket.data.userId) === userId);
   }
 
   emitNotification(notification: unknown, userId: number) {

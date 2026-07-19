@@ -7,6 +7,6 @@ export const GetCurrentUserId = createParamDecorator(
     if (!user || !user.sub) {
       return null;
     }
-    return user.sub;
+    return Number(user.sub);
   },
 );

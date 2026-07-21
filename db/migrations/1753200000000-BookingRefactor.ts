@@ -9,13 +9,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * - Create new bookings table with full booking lifecycle fields
  * - Add auto_confirm_booking column to offers
  * - Add booking notification types to notifications_type_enum
- *
- * Note: transaction = false is required because ALTER TYPE ADD VALUE
- * cannot run inside a transaction block in PostgreSQL.
  */
 export class BookingRefactor1753200000000 implements MigrationInterface {
   name = 'BookingRefactor1753200000000';
-  public transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Drop old bookings table and dependent constraints
@@ -105,8 +101,8 @@ export class BookingRefactor1753200000000 implements MigrationInterface {
       `ALTER TABLE "offers" ADD COLUMN IF NOT EXISTS "auto_confirm_booking" boolean NOT NULL DEFAULT false`,
     );
 
-    // 8. Add booking notification types to existing enum
-    // These must run outside a transaction (transaction = false on class)
+    // 8. Add booking notification types to existing enum.
+    // PostgreSQL exposes the new values after this migration transaction commits.
     await queryRunner.query(
       `ALTER TYPE "public"."notifications_type_enum" ADD VALUE IF NOT EXISTS 'booking_new'`,
     );
@@ -134,8 +130,12 @@ export class BookingRefactor1753200000000 implements MigrationInterface {
     );
 
     // Drop indices
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_bookings_customer_status"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_bookings_seller_status"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_bookings_customer_status"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_bookings_seller_status"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_bookings_status"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_bookings_offer_id"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_bookings_customer_id"`);

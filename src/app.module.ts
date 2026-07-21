@@ -15,12 +15,15 @@ import { dataSourceOptions } from '../db/data-source';
 import { AccessTokenGuard } from './auth/guards/access-token.guard';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
+import { validateEnv } from './config/validate-env';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnv,
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     OfferModule,
@@ -36,6 +39,7 @@ import { NotificationModule } from './notification/notification.module';
     UploadModule,
     ChatModule,
     NotificationModule,
+    HealthModule,
   ],
   providers: [
     {

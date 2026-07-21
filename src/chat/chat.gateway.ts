@@ -17,6 +17,7 @@ import { Repository } from 'typeorm';
 import { isUUID } from 'class-validator';
 import { ChatEntity } from './entities/chat.entity';
 import { Role } from '../user/enums/role.enum';
+import { getAllowedOrigins } from '../config/cors-origins';
 
 export type AuthSocket = Socket & {
   userId: number;
@@ -26,7 +27,7 @@ export type AuthSocket = Socket & {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: getAllowedOrigins(),
     credentials: true,
   },
   namespace: '/ws',

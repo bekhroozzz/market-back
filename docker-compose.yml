@@ -1,54 +1,47 @@
-version: '3.8'
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Market backend infrastructure
-#
-# Services:
-#   postgres           – primary database (source of truth)
-#   opensearch         – search engine (catalog search only)
-#   opensearch-dashboards – UI for OpenSearch (dev only)
-#
-# Scaling notes:
-#   - For production: set number_of_replicas=1 in OpenSearch, run 3+ nodes
-#   - For production: enable security plugin (remove DISABLE_SECURITY_PLUGIN)
-#   - For production: set OPENSEARCH_JAVA_OPTS to 50% of available RAM
-# ─────────────────────────────────────────────────────────────────────────────
-
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: market-postgres
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
     restart: unless-stopped
+    init: true
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DATABASE:-market-db}
-    ports:
-      - '5432:5432'
+      NODE_ENV: production
+      PORT: 4000
+      BASE_URL: https://api.locafun.uz
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      DB_HOST: ${DB_HOST:?DB_HOST is required}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE:?POSTGRES_DATABASE is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      OPENSEARCH_URL: https://opensearch:9200
+      OPENSEARCH_USER: admin
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:?OPENSEARCH_PASSWORD is required}
+      OPENSEARCH_PRODUCTS_INDEX: ${OPENSEARCH_PRODUCTS_INDEX:-products}
+    expose:
+      - '4000'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - uploads_data:/app/uploads
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    networks:
+      - backend
 
   opensearch:
-    image: opensearchproject/opensearch:2.12.0
-    container_name: market-opensearch
+    image: opensearchproject/opensearch:3.7.0
     restart: unless-stopped
     environment:
-      - cluster.name=market-cluster
-      - node.name=market-node-1
-      - discovery.type=single-node
-      # Disable security plugin for local development.
-      # PRODUCTION: remove these two lines and configure certificates.
-      - DISABLE_SECURITY_PLUGIN=true
-      - DISABLE_INSTALL_DEMO_CONFIG=true
-      - bootstrap.memory_lock=true
-      # Production recommendation: set to 50% of host RAM, min 2g, max 32g
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      cluster.name: market-cluster
+      node.name: market-node-1
+      discovery.type: single-node
+      bootstrap.memory_lock: 'true'
+      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_PASSWORD:?OPENSEARCH_PASSWORD is required}
     ulimits:
       memlock:
         soft: -1
@@ -56,38 +49,28 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-    ports:
-      - '9200:9200'
-      - '9600:9600' # performance analyzer port
     volumes:
       - opensearch_data:/usr/share/opensearch/data
     healthcheck:
-      # Waits for cluster to reach yellow (≥1 shard) or green status
       test:
-        - CMD-SHELL
-        - |
-          curl -sf http://localhost:9200/_cluster/health \
-            | grep -qE '"status":"(yellow|green)"'
+        [
+          'CMD-SHELL',
+          'curl --silent --fail --insecure --user "admin:$${OPENSEARCH_INITIAL_ADMIN_PASSWORD}" "https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null',
+        ]
       interval: 15s
       timeout: 10s
       retries: 10
-      start_period: 40s
-
-  opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:2.12.0
-    container_name: market-opensearch-dashboards
-    restart: unless-stopped
-    ports:
-      - '5601:5601'
-    environment:
-      - 'OPENSEARCH_HOSTS=["http://opensearch:9200"]'
-      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
-    depends_on:
-      opensearch:
-        condition: service_healthy
+      start_period: 90s
+    networks:
+      - backend
+    mem_limit: 2g
 
 volumes:
-  postgres_data:
-    driver: local
   opensearch_data:
     driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge

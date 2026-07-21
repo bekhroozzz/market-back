@@ -7,6 +7,7 @@ config();
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isSeeding = process.env.NODE_ENV === 'seeding';
+const useSsl = process.env.DB_SSL === 'true';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -21,7 +22,11 @@ export const dataSourceOptions: DataSourceOptions = {
   migrationsRun: isProduction,
   synchronize: !isProduction && !isSeeding,
   logging: !isProduction,
-  ssl: false,
+  ssl: useSsl
+    ? {
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+      }
+    : false,
   extra: {
     max: 20,
     connectionTimeoutMillis: 5000,

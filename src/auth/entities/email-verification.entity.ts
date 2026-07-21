@@ -15,7 +15,7 @@ export class EmailVerification {
   @Column()
   token: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: false })
   user: User;
 
   @CreateDateColumn()

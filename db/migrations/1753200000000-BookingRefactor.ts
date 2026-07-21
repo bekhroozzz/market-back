@@ -75,6 +75,9 @@ export class BookingRefactor1753200000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "bookings" ADD CONSTRAINT "FK_bookings_customer_id" FOREIGN KEY ("customer_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
+    await queryRunner.query(
+      `ALTER TABLE "bookings" ADD CONSTRAINT "FK_bookings_seller_id" FOREIGN KEY ("seller_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
 
     // 6. Add indices for fast searching
     await queryRunner.query(

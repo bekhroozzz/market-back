@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -16,9 +17,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { randomUUID } from 'crypto';
+import { memoryStorage } from 'multer';
 import { Request as ExpressRequest } from 'express';
 import {
   ApiBearerAuth,
@@ -40,17 +39,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Role } from '../user/enums/role.enum';
 import { JwtPayload } from '../auth/strategies/access-token.strategy';
+import { StorageService } from '../storage/storage.service';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user: JwtPayload;
 }
-
-const galleryStorage = diskStorage({
-  destination: join(process.cwd(), 'uploads', 'gallery'),
-  filename: (_req, file, cb) => {
-    cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`);
-  },
-});
 
 function imageFileFilter(
   _req: ExpressRequest,
@@ -68,7 +61,10 @@ function imageFileFilter(
 @ApiTags('Seller Profile')
 @Controller('seller')
 export class SellerProfileController {
-  constructor(private readonly sellerProfileService: SellerProfileService) {}
+  constructor(
+    private readonly sellerProfileService: SellerProfileService,
+    private readonly storageService: StorageService,
+  ) {}
 
   // ─── Public ────────────────────────────────────────────────────────────────
 
@@ -125,7 +121,7 @@ export class SellerProfileController {
   @Roles(Role.Seller, Role.Admin)
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: galleryStorage,
+      storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: imageFileFilter,
     }),
@@ -145,11 +141,13 @@ export class SellerProfileController {
     @Req() req: AuthenticatedRequest,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<SellerProfileEntity> {
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:4000';
-    const imageUrl = `${baseUrl}/uploads/gallery/${file.filename}`;
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const { url } = await this.storageService.upload(file, 'gallery');
     return this.sellerProfileService.addGalleryImage(
       Number(req.user.sub),
-      imageUrl,
+      url,
     );
   }
 

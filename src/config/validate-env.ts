@@ -11,6 +11,11 @@ const PRODUCTION_REQUIRED_VARIABLES = [
   'OPENSEARCH_URL',
   'OPENSEARCH_USER',
   'OPENSEARCH_PASSWORD',
+  'R2_ENDPOINT',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_BUCKET',
+  'R2_PUBLIC_URL',
 ] as const;
 
 function requireUrl(config: Record<string, unknown>, name: string): void {
@@ -59,6 +64,8 @@ export function validateEnv(
     requireUrl(config, 'BASE_URL');
     requireUrlList(config, 'FRONTEND_URL');
     requireUrl(config, 'OPENSEARCH_URL');
+    requireUrl(config, 'R2_ENDPOINT');
+    requireUrl(config, 'R2_PUBLIC_URL');
 
     for (const secret of ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const) {
       if (String(config[secret]).length < 32) {

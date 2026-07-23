@@ -14,6 +14,7 @@ import { BookingModule } from './booking/booking.module';
 import { SearchModule } from './search/search.module';
 import { SellerProfileModule } from './seller-profile/seller-profile.module';
 import { UploadModule } from './upload/upload.module';
+import { StorageModule } from './storage/storage.module';
 import { dataSourceOptions } from '../db/data-source';
 import { AccessTokenGuard } from './auth/guards/access-token.guard';
 import { ChatModule } from './chat/chat.module';
@@ -46,6 +47,7 @@ import { HealthModule } from './health/health.module';
     // Registering here makes SearchController available at /api/search/*
     SearchModule,
     SellerProfileModule,
+    StorageModule,
     UploadModule,
     ChatModule,
     NotificationModule,

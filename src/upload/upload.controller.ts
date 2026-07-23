@@ -9,9 +9,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { randomUUID } from 'crypto';
+import { memoryStorage } from 'multer';
 import { Request as ExpressRequest } from 'express';
 import {
   ApiBearerAuth,
@@ -24,6 +22,7 @@ import {
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../user/enums/role.enum';
+import { StorageService } from '../storage/storage.service';
 
 function imageFileFilter(
   _req: ExpressRequest,
@@ -45,20 +44,14 @@ function imageFileFilter(
 @ApiTags('Upload')
 @Controller('upload')
 export class UploadController {
+  constructor(private readonly storageService: StorageService) {}
+
   @Post('image')
   @UseGuards(RolesGuard)
   @Roles(Role.Seller, Role.Admin)
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: join(process.cwd(), 'uploads', 'images'),
-        filename: (_req, file, cb) => {
-          cb(
-            null,
-            `${randomUUID()}${extname(file.originalname).toLowerCase()}`,
-          );
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: imageFileFilter,
     }),
@@ -75,12 +68,15 @@ export class UploadController {
   @ApiResponse({
     status: 201,
     schema: {
-      example: { url: 'http://localhost:4000/uploads/images/abc.jpg' },
+      example: { url: 'https://cdn.locafun.uz/images/abc.jpg' },
     },
   })
   @HttpCode(HttpStatus.CREATED)
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:4000';
-    return { url: `${baseUrl}/uploads/images/${file.filename}` };
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const { url } = await this.storageService.upload(file, 'images');
+    return { url };
   }
 }

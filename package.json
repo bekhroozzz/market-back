@@ -16,6 +16,7 @@
     "seed:categories": "ts-node db/seeds/category.seed.ts",
     "seed:offers": "ts-node db/seeds/offer.seed.ts",
     "search:reindex": "ts-node src/scripts/reindex-search.ts",
+    "migrate:uploads": "ts-node scripts/migrate-uploads-to-r2.ts",
     "typeorm": "pnpm run build && npx typeorm",
     "migration:generate": "pnpm run build && npx typeorm -d dist/db/data-source.js migration:generate",
     "migration:run": "pnpm run build && npx typeorm -d dist/db/data-source.js migration:run",
@@ -28,6 +29,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1092.0",
     "@nestjs/cache-manager": "^2.3.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^4.0.2",
@@ -59,6 +61,7 @@
     "redis": "^4.7.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.3",
     "socket.io": "^4.8.3",
     "typeorm": "^0.3.24"
   },

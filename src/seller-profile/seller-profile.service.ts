@@ -14,6 +14,7 @@ import { UpdateSellerProfileDto } from './dto/update-seller-profile.dto';
 import { OfferEntity } from '../offer/entities/offer.entity';
 import { User } from '../user/entities/user.entity';
 import { SellerPublicResponseDto } from './dto/seller-public-response.dto';
+import { StorageService } from '../storage/storage.service';
 
 const GALLERY_LIMIT = 10;
 
@@ -26,6 +27,7 @@ export class SellerProfileService {
     private readonly offerRepository: Repository<OfferEntity>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly storageService: StorageService,
   ) {}
 
   async getPublicProfile(
@@ -124,11 +126,17 @@ export class SellerProfileService {
   ): Promise<SellerProfileEntity> {
     const profile = await this.getOrCreateProfile(userId);
 
-    const exists = profile.gallery.some((img) => img.id === imageId);
-    if (!exists) throw new NotFoundException('Image not found in gallery');
+    const removed = profile.gallery.find((img) => img.id === imageId);
+    if (!removed) throw new NotFoundException('Image not found in gallery');
 
     profile.gallery = profile.gallery.filter((img) => img.id !== imageId);
 
-    return this.profileRepository.save(profile);
+    const saved = await this.profileRepository.save(profile);
+
+    // Best-effort cleanup of the underlying object; failures are logged
+    // inside the storage service and must not block the DB update.
+    await this.storageService.deleteByUrl(removed.url);
+
+    return saved;
   }
 }

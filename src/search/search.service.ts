@@ -7,6 +7,7 @@ import {
 import { SearchQueryBuilder } from './query/search-query.builder';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { AutocompleteDto } from './dto/autocomplete.dto';
+import { AppCacheService } from '../cache/app-cache.service';
 import { ProductDocument } from './interfaces/product-document.interface';
 import {
   AutocompleteResult,
@@ -32,6 +33,10 @@ import {
  * - OpenSearch communication → OpenSearchService
  * - Aggregation parsing → private parser methods
  */
+// Short TTLs: popular queries repeat within seconds; staleness is bounded.
+const SEARCH_TTL_MS = 30 * 1000;
+const AUTOCOMPLETE_TTL_MS = 30 * 1000;
+
 @Injectable()
 export class SearchService {
   private readonly logger = new Logger(SearchService.name);
@@ -39,11 +44,22 @@ export class SearchService {
   constructor(
     private readonly openSearchService: OpenSearchService,
     private readonly bulkIndexer: BulkIndexerService,
+    private readonly cache: AppCacheService,
   ) {}
 
   // ─── Search ───────────────────────────────────────────────────────────────
 
   async searchProducts(dto: SearchProductsDto): Promise<SearchResult> {
+    return this.cache.wrap(
+      `search:products:${JSON.stringify(dto)}`,
+      SEARCH_TTL_MS,
+      () => this.runSearchProducts(dto),
+    );
+  }
+
+  private async runSearchProducts(
+    dto: SearchProductsDto,
+  ): Promise<SearchResult> {
     const query = SearchQueryBuilder.build(dto);
 
     const rawResponse = await this.openSearchService.getClient().search({
@@ -80,6 +96,16 @@ export class SearchService {
       return { suggestions: [], took: 0 };
     }
 
+    return this.cache.wrap(
+      `search:autocomplete:${JSON.stringify(dto)}`,
+      AUTOCOMPLETE_TTL_MS,
+      () => this.runAutocomplete(dto),
+    );
+  }
+
+  private async runAutocomplete(
+    dto: AutocompleteDto,
+  ): Promise<AutocompleteResult> {
     const query = SearchQueryBuilder.buildAutocomplete(dto);
 
     const rawResponse = await this.openSearchService.getClient().search({

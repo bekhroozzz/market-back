@@ -8,6 +8,10 @@ config();
 const isProduction = process.env.NODE_ENV === 'production';
 const isSeeding = process.env.NODE_ENV === 'seeding';
 const useSsl = process.env.DB_SSL === 'true';
+// In a PM2 cluster the entrypoint runs migrations once before forking, then
+// sets RUN_MIGRATIONS_ON_BOOT=false so workers don't race to migrate. Any
+// single-instance run (no flag) keeps the previous auto-migrate behaviour.
+const runMigrationsOnBoot = process.env.RUN_MIGRATIONS_ON_BOOT !== 'false';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -19,7 +23,7 @@ export const dataSourceOptions: DataSourceOptions = {
   entities: [join(__dirname, '..', 'src', '**', '*.entity.{ts,js}')],
   migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   migrationsTableName: 'migrations',
-  migrationsRun: isProduction,
+  migrationsRun: isProduction && runMigrationsOnBoot,
   synchronize: !isProduction && !isSeeding,
   logging: !isProduction,
   ssl: useSsl

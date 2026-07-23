@@ -1,12 +1,19 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { instanceToPlain } from 'class-transformer';
 import { OfferEntity } from './entities/offer.entity';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
 import { CategoryEntity } from '../category/entities/category.entity';
 import { OfferIndexerService } from '../search/indexing/offer-indexer.service';
 import { SellerProfileService } from '../seller-profile/seller-profile.service';
+import { AppCacheService } from '../cache/app-cache.service';
+
+const OFFER_NS = 'offers';
+// Listings turn over often; single offers are read far more than written.
+const OFFER_LIST_TTL_MS = 60 * 1000;
+const OFFER_ITEM_TTL_MS = 2 * 60 * 1000;
 
 function generateSlug(title: string): string {
   const cyrillicMap: Record<string, string> = {
@@ -65,6 +72,7 @@ export class OfferService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly offerIndexer: OfferIndexerService,
     private readonly sellerProfileService: SellerProfileService,
+    private readonly cache: AppCacheService,
   ) {}
 
   async findAll(
@@ -78,7 +86,49 @@ export class OfferService {
     pages: number;
   }> {
     const take = Math.min(Math.max(limit, 1), 100);
-    const skip = (Math.max(page, 1) - 1) * take;
+    const safePage = Math.max(page, 1);
+    const version = await this.cache.version(OFFER_NS);
+
+    return this.cache.wrap(
+      `${OFFER_NS}:v${version}:list:p${safePage}:l${take}`,
+      OFFER_LIST_TTL_MS,
+      () => this.loadAll(safePage, take),
+    );
+  }
+
+  async findBySlug(slug: string): Promise<OfferEntity> {
+    const version = await this.cache.version(OFFER_NS);
+    return this.cache.wrap(
+      `${OFFER_NS}:v${version}:slug:${slug}`,
+      OFFER_ITEM_TTL_MS,
+      async () =>
+        instanceToPlain(await this.loadEntityBySlug(slug)) as OfferEntity,
+    );
+  }
+
+  async findById(id: string): Promise<OfferEntity> {
+    const version = await this.cache.version(OFFER_NS);
+    return this.cache.wrap(
+      `${OFFER_NS}:v${version}:id:${id}`,
+      OFFER_ITEM_TTL_MS,
+      async () =>
+        instanceToPlain(await this.loadEntityById(id)) as OfferEntity,
+    );
+  }
+
+  // ─── Uncached entity loaders (used for reads-for-write and by cache) ───────
+
+  private async loadAll(
+    page: number,
+    take: number,
+  ): Promise<{
+    items: OfferEntity[];
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  }> {
+    const skip = (page - 1) * take;
 
     const [items, total] = await this.offerRepository.findAndCount({
       order: { createdAt: 'desc' },
@@ -88,15 +138,15 @@ export class OfferService {
     });
 
     return {
-      items,
+      items: instanceToPlain(items) as unknown as OfferEntity[],
       total,
-      page: Math.max(page, 1),
+      page,
       limit: take,
       pages: Math.ceil(total / take),
     };
   }
 
-  async findBySlug(slug: string): Promise<OfferEntity> {
+  private async loadEntityBySlug(slug: string): Promise<OfferEntity> {
     const offer = await this.offerRepository.findOne({
       where: { slug },
       relations: ['category', 'author'],
@@ -106,7 +156,7 @@ export class OfferService {
     return offer;
   }
 
-  async findById(id: string): Promise<OfferEntity> {
+  private async loadEntityById(id: string): Promise<OfferEntity> {
     const offer = await this.offerRepository.findOne({
       where: { id },
       relations: ['category', 'author'],
@@ -164,6 +214,7 @@ export class OfferService {
     });
 
     const saved = await this.offerRepository.save(newOffer);
+    await this.cache.bump(OFFER_NS);
     const savedOffer = await this.findById(saved.id);
 
     this.offerIndexer.upsertOffer(savedOffer.id).catch((err: Error) => {
@@ -176,7 +227,7 @@ export class OfferService {
   }
 
   async update(id: string, offerDto: UpdateOfferDto): Promise<OfferEntity> {
-    const existing = await this.findById(id);
+    const existing = await this.loadEntityById(id);
 
     Object.assign(existing, {
       ...(offerDto.title !== undefined && { title: offerDto.title }),
@@ -212,6 +263,7 @@ export class OfferService {
     });
 
     const saved = await this.offerRepository.save(existing);
+    await this.cache.bump(OFFER_NS);
     const savedOffer = await this.findById(saved.id);
 
     this.offerIndexer.upsertOffer(savedOffer.id).catch((err: Error) => {
@@ -224,8 +276,9 @@ export class OfferService {
   }
 
   async delete(id: string): Promise<OfferEntity> {
-    const offer = await this.findById(id);
+    const offer = await this.loadEntityById(id);
     const removed = await this.offerRepository.remove(offer);
+    await this.cache.bump(OFFER_NS);
 
     this.offerIndexer.removeOffer(id).catch((err: Error) => {
       this.logger.warn(
@@ -246,5 +299,6 @@ export class OfferService {
       rating: avgRating,
       reviewCount: count,
     });
+    await this.cache.bump(OFFER_NS);
   }
 }

@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerProxyGuard } from './common/guards/throttler-proxy.guard';
+import { AppCacheModule } from './cache/app-cache.module';
 import { OfferModule } from './offer/offer.module';
 import { CategoryModule } from './category/category.module';
 import { ReviewModule } from './review/review.module';
@@ -26,6 +29,13 @@ import { HealthModule } from './health/health.module';
       validate: validateEnv,
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
+    AppCacheModule,
+    ThrottlerModule.forRoot([
+      {
+        ttl: Number(process.env.THROTTLE_TTL ?? 60) * 1000,
+        limit: Number(process.env.THROTTLE_LIMIT ?? 300),
+      },
+    ]),
     OfferModule,
     CategoryModule,
     ReviewModule,
@@ -42,6 +52,11 @@ import { HealthModule } from './health/health.module';
     HealthModule,
   ],
   providers: [
+    // Rate limiter runs first so floods are rejected before any JWT work.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerProxyGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: AccessTokenGuard,

@@ -74,7 +74,7 @@ export function makeSellerProfile(sellerIndex: number): SellerProfileSeedData {
 
   const gallery: GalleryImage[] = GALLERY_URLS.slice(0, 2).map((url, imgIdx) => ({
     id: `gallery-${sellerIndex}-${imgIdx + 1}`,
-    url: `${url}?seed=${sellerIndex + 1}-${imgIdx + 1}`,
+    url: `${url}?seed=${sellerIndex + 1}-${imgIdx + 1}&w=1280&q=80&fm=webp&fit=crop`,
   }));
 
   return {

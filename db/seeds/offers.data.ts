@@ -153,7 +153,10 @@ export const offersData: OfferSeedInput[] = Array.from(
         packageType,
         PREP_TIMELINES[index % PREP_TIMELINES.length],
       ),
-      images: imageSet.map((url, imageIndex) => `${url}?seed=${index + 1}-${imageIndex + 1}`),
+      images: imageSet.map(
+        (url, imageIndex) =>
+          `${url}?seed=${index + 1}-${imageIndex + 1}&w=1280&q=80&fm=webp&fit=crop`,
+      ),
       price,
       oldPrice,
       inStock: index % 11 !== 0,

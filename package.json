@@ -16,6 +16,7 @@
     "seed:categories": "ts-node db/seeds/category.seed.ts",
     "seed:offers": "ts-node db/seeds/offer.seed.ts",
     "search:reindex": "ts-node src/scripts/reindex-search.ts",
+    "search:reindex:prod": "node dist/src/scripts/reindex-search.js",
     "migrate:uploads": "ts-node scripts/migrate-uploads-to-r2.ts",
     "typeorm": "pnpm run build && npx typeorm",
     "migration:generate": "pnpm run build && npx typeorm -d dist/db/data-source.js migration:generate",

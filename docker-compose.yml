@@ -47,7 +47,12 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - backend
+      backend: {}
+      # Shared Dokploy network so the frontend (a separate app) can reach the
+      # API by a stable hostname for server-side rendering.
+      dokploy-network:
+        aliases:
+          - locafun-server-side-api
 
   opensearch:
     image: opensearchproject/opensearch:3.7.0
@@ -139,3 +144,7 @@ volumes:
 networks:
   backend:
     driver: bridge
+  # Managed by Dokploy; the API joins it to expose a stable alias to the
+  # frontend. Verify the exact name with: docker network ls | grep dokploy
+  dokploy-network:
+    external: true

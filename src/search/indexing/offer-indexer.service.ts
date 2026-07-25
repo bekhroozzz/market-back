@@ -54,6 +54,27 @@ export class OfferIndexerService {
   }
 
   /**
+   * Re-indexes many offers (e.g. after category branch delete/reassign).
+   * Failures are logged; callers should not fail the DB transaction on index errors.
+   */
+  async upsertOffers(offerIds: string[]): Promise<void> {
+    if (offerIds.length === 0) return;
+
+    const results = await Promise.allSettled(
+      offerIds.map((id) => this.upsertOffer(id)),
+    );
+
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) {
+      this.logger.error(
+        `Failed to reindex ${failed}/${offerIds.length} offers after category change`,
+      );
+    } else {
+      this.logger.log(`Reindexed ${offerIds.length} offers after category change`);
+    }
+  }
+
+  /**
    * Removes a document from OpenSearch by ID.
    * Call AFTER the record is deleted from PostgreSQL (only the ID is needed).
    */

@@ -84,6 +84,8 @@ export class SearchController {
     description: `
 Полнотекстовый поиск с поддержкой фильтров, сортировки и фасетных агрегаций.
 
+Для витрины / листинга категории без текста используйте \`GET /api/catalog/products\`.
+
 **Движок:** OpenSearch (не SQL LIKE).
 
 **Ранжирование** (применяется совместно):
@@ -138,10 +140,10 @@ export class SearchController {
     name: 'category',
     required: false,
     type: String,
-    example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
+    example: 'woman/odezhda/tolstovky-i-svitshoty',
     description:
-      'UUID категории. Автоматически включает все дочерние категории ' +
-      '(используются все ancestor-IDs в индексе).',
+      'Вложенный path категории (`a/b/c`) или UUID. Автоматически включает ' +
+      'все дочерние категории. Витрина: GET /api/catalog/{path}.',
   })
   @ApiQuery({
     name: 'brand',

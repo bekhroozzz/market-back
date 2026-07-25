@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { OpenSearchService } from './opensearch/opensearch.service';
 import {
   BulkIndexerService,
@@ -8,6 +8,7 @@ import { SearchQueryBuilder } from './query/search-query.builder';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { AutocompleteDto } from './dto/autocomplete.dto';
 import { AppCacheService } from '../cache/app-cache.service';
+import { CategoryService } from '../category/category.service';
 import { ProductDocument } from './interfaces/product-document.interface';
 import {
   AutocompleteResult,
@@ -45,15 +46,19 @@ export class SearchService {
     private readonly openSearchService: OpenSearchService,
     private readonly bulkIndexer: BulkIndexerService,
     private readonly cache: AppCacheService,
+    @Inject(forwardRef(() => CategoryService))
+    private readonly categoryService: CategoryService,
   ) {}
 
   // ─── Search ───────────────────────────────────────────────────────────────
 
   async searchProducts(dto: SearchProductsDto): Promise<SearchResult> {
+    const resolvedDto = await this.resolveCategoryFilter(dto);
+
     return this.cache.wrap(
-      `search:products:${JSON.stringify(dto)}`,
+      `search:products:${JSON.stringify(resolvedDto)}`,
       SEARCH_TTL_MS,
-      () => this.runSearchProducts(dto),
+      () => this.runSearchProducts(resolvedDto),
     );
   }
 
@@ -72,6 +77,9 @@ export class SearchService {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 20;
     const total = body.hits.total.value;
+    const facets = await this.enrichCategoryFacets(
+      this.parseAggregations(body.aggregations ?? {}),
+    );
 
     return {
       total,
@@ -79,8 +87,43 @@ export class SearchService {
       limit,
       pages: Math.ceil(total / limit),
       items: this.parseHits(body.hits.hits),
-      facets: this.parseAggregations(body.aggregations ?? {}),
+      facets,
       took: body.took,
+    };
+  }
+
+  /**
+   * Public API accepts nested category path (or UUID);
+   * OpenSearch filters by resolved UUID.
+   */
+  private async resolveCategoryFilter(
+    dto: SearchProductsDto,
+  ): Promise<SearchProductsDto> {
+    if (!dto.category) return dto;
+
+    const categoryId = await this.categoryService.resolveCategoryId(
+      dto.category,
+    );
+    return { ...dto, category: categoryId };
+  }
+
+  private async enrichCategoryFacets(
+    facets: SearchFacets,
+  ): Promise<SearchFacets> {
+    const ids = facets.categories.map((c) => c.id);
+    const lookups = await this.categoryService.findLookupsByIds(ids);
+
+    return {
+      ...facets,
+      categories: facets.categories.map((facet) => {
+        const meta = lookups.get(facet.id);
+        return {
+          ...facet,
+          slug: meta?.slug ?? null,
+          path: meta?.path ?? null,
+          name: meta?.name ?? null,
+        };
+      }),
     };
   }
 

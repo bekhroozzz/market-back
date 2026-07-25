@@ -9,58 +9,12 @@ import { CategoryEntity } from '../category/entities/category.entity';
 import { OfferIndexerService } from '../search/indexing/offer-indexer.service';
 import { SellerProfileService } from '../seller-profile/seller-profile.service';
 import { AppCacheService } from '../cache/app-cache.service';
+import { generateSlug } from '../common/utils/slug.util';
 
 const OFFER_NS = 'offers';
 // Listings turn over often; single offers are read far more than written.
 const OFFER_LIST_TTL_MS = 60 * 1000;
 const OFFER_ITEM_TTL_MS = 2 * 60 * 1000;
-
-function generateSlug(title: string): string {
-  const cyrillicMap: Record<string, string> = {
-    а: 'a',
-    б: 'b',
-    в: 'v',
-    г: 'g',
-    д: 'd',
-    е: 'e',
-    ё: 'yo',
-    ж: 'zh',
-    з: 'z',
-    и: 'i',
-    й: 'y',
-    к: 'k',
-    л: 'l',
-    м: 'm',
-    н: 'n',
-    о: 'o',
-    п: 'p',
-    р: 'r',
-    с: 's',
-    т: 't',
-    у: 'u',
-    ф: 'f',
-    х: 'kh',
-    ц: 'ts',
-    ч: 'ch',
-    ш: 'sh',
-    щ: 'shch',
-    ъ: '',
-    ы: 'y',
-    ь: '',
-    э: 'e',
-    ю: 'yu',
-    я: 'ya',
-  };
-
-  return title
-    .toLowerCase()
-    .split('')
-    .map((char) => cyrillicMap[char] ?? char)
-    .join('')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 160);
-}
 
 @Injectable()
 export class OfferService {

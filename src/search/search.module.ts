@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
@@ -7,6 +7,7 @@ import { OfferIndexerService } from './indexing/offer-indexer.service';
 import { BulkIndexerService } from './indexing/bulk-indexer.service';
 import { OfferEntity } from '../offer/entities/offer.entity';
 import { CategoryEntity } from '../category/entities/category.entity';
+import { CategoryModule } from '../category/category.module';
 
 /**
  * SearchModule – self-contained OpenSearch integration.
@@ -15,13 +16,16 @@ import { CategoryEntity } from '../category/entities/category.entity';
  * circular module references when OfferModule imports SearchModule.
  *
  * Exported services:
- * - OfferIndexerService: consumed by OfferModule for CRUD event hooks
+ * - OfferIndexerService: consumed by OfferModule / CategoryModule
+ * - SearchService: consumed by CatalogModule for browse listings
  */
 @Module({
   imports: [
     // OfferEntity: needed by OfferIndexerService (single doc upsert)
     //              and BulkIndexerService (full reindex pagination)
     TypeOrmModule.forFeature([OfferEntity, CategoryEntity]),
+    // CategoryService resolves path→UUID; CategoryModule also imports SearchModule
+    forwardRef(() => CategoryModule),
   ],
   controllers: [SearchController],
   providers: [
@@ -31,9 +35,9 @@ import { CategoryEntity } from '../category/entities/category.entity';
     SearchService,
   ],
   exports: [
-    // Exported so OfferService can call upsertOffer / removeOffer
+    // Exported so OfferService / CategoryService can call upsert / remove
     OfferIndexerService,
-    // Exported for potential future use (e.g. a dedicated admin module)
+    // Exported for CatalogModule and potential admin tooling
     SearchService,
     OpenSearchService,
   ],

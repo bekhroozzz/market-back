@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateCategoryDto {
@@ -9,6 +16,21 @@ export class CreateCategoryDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiPropertyOptional({
+    example: 'tolstovky-i-svitshoty',
+    description:
+      'URL-сегмент категории (уникален среди siblings). ' +
+      'Полный путь: /catalog/{parentSlug}/{slug}/. ' +
+      'Если не указан — генерируется из названия.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+    message: 'slug must be lowercase latin, digits and hyphens only',
+  })
+  slug?: string;
 
   @ApiPropertyOptional({
     example: 'Категория для всех видов смартфонов',

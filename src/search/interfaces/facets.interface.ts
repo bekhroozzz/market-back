@@ -10,6 +10,9 @@ export interface BrandFacet {
 
 export interface CategoryFacet {
   id: string;
+  slug?: string | null;
+  path?: string | null;
+  name?: string | null;
   count: number;
 }
 

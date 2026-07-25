@@ -62,7 +62,12 @@ export class CategoryController {
   @Post('create')
   @UseGuards(RolesGuard)
   @Roles(Role.Admin, Role.Seller)
-  @ApiOperation({ summary: 'Создать новую категорию' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Создать новую категорию',
+    description:
+      'Slug уникален среди siblings. Полный path для URL возвращается в поле `path`.',
+  })
   @ApiBody({
     type: CreateCategoryDto,
     description: 'Поля для создания категории',
@@ -72,6 +77,11 @@ export class CategoryController {
     description: 'Категория успешно создана',
     type: CategoryEntity,
   })
+  @ApiResponse({
+    status: 400,
+    description: 'Невалидный / зарезервированный slug',
+  })
+  @ApiResponse({ status: 409, description: 'Slug уже занят у этого родителя' })
   async create(
     @Body() createCategoryDto: CreateCategoryDto,
   ): Promise<CategoryEntity> {
@@ -83,8 +93,10 @@ export class CategoryController {
   @Roles(Role.Admin)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary:
-      'Удалить категорию и всех её потомков с переназначением офферов на родителя',
+    summary: 'Удалить ветку категории',
+    description:
+      'Удаляет категорию и всех потомков. Офферы из ветки переносятся на родителя ' +
+      '(или category_id=null, если удаляется корень), затем реиндексируются в OpenSearch.',
   })
   @ApiParam({
     name: 'id',

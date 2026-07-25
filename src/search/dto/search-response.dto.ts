@@ -160,6 +160,27 @@ export class CategoryFacetDto {
   id: string;
 
   @ApiProperty({
+    example: 'tolstovky-i-svitshoty',
+    nullable: true,
+    description: 'Slug сегмент категории',
+  })
+  slug?: string | null;
+
+  @ApiProperty({
+    example: 'woman/odezhda/tolstovky-i-svitshoty',
+    nullable: true,
+    description: 'Полный path для URL /catalog/{path}/',
+  })
+  path?: string | null;
+
+  @ApiProperty({
+    example: 'Толстовки и свитшоты',
+    nullable: true,
+    description: 'Название категории',
+  })
+  name?: string | null;
+
+  @ApiProperty({
     example: 24,
     description: 'Количество товаров в этой категории',
   })

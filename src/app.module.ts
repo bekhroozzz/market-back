@@ -12,6 +12,7 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingModule } from './booking/booking.module';
 import { SearchModule } from './search/search.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { SellerProfileModule } from './seller-profile/seller-profile.module';
 import { UploadModule } from './upload/upload.module';
 import { StorageModule } from './storage/storage.module';
@@ -46,6 +47,7 @@ import { HealthModule } from './health/health.module';
     // SearchModule is also imported by OfferModule, but NestJS deduplicates modules.
     // Registering here makes SearchController available at /api/search/*
     SearchModule,
+    CatalogModule,
     SellerProfileModule,
     StorageModule,
     UploadModule,

@@ -54,8 +54,10 @@ export class SearchProductsDto {
   sort?: SortOption = SortOption.RELEVANCE;
 
   @ApiPropertyOptional({
-    example: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
-    description: 'Фильтр по категории (UUID). Включает дочерние категории.',
+    example: 'woman/odezhda/tolstovky-i-svitshoty',
+    description:
+      'Фильтр по категории: вложенный path (`woman/odezhda/...`) или UUID. ' +
+      'Включает дочерние категории. Для витрины используйте GET /api/catalog/{path}.',
   })
   @IsOptional()
   @IsString()
